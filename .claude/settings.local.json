@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p \"C:/Users/user/OneDrive/문서/claude_project/.claude/agents\")",
+      "Bash(mkdir -p \"C:/Users/user/OneDrive/문서/claude_project/.claude/skills/ios-action-game/references\")"
+    ]
+  }
+}
+{
+  "env": {
+    "BASH_PATH": "C:\\Program Files\\Git\\bin\\bash.exe"
+  }
+}

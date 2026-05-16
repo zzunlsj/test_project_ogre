@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>OGRE Attack Effects Demo</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+  :root {
+    --g:'#33FF33'; --g2:#00CC00; --amber:#FFAA00; --red:#FF3300;
+    --bg:#070C07; --panel:#0C120C; --bdr:#2A4A2A;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background:#070C07; color:#33FF33;
+    font-family:'Share Tech Mono','Courier New',monospace;
+    display:flex; flex-direction:column; align-items:center;
+    justify-content:center; min-height:100vh; gap:16px;
+    overflow:hidden;
+  }
+  body::after {
+    content:''; position:fixed; inset:0;
+    background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.05) 3px,rgba(0,0,0,0.05) 4px);
+    pointer-events:none; z-index:999;
+  }
+  h1 { font-size:12px; letter-spacing:5px; color:#00AA00; }
+
+  #fx {
+    border:1px solid #2A4A2A;
+    box-shadow:0 0 20px rgba(0,180,0,0.1), inset 0 0 30px rgba(0,10,0,0.5);
+    background:#050A05;
+  }
+
+  .ctrl-panel {
+    display:flex; flex-direction:column; align-items:center; gap:10px;
+    background:#0C120C; border:1px solid #2A4A2A;
+    padding:14px 24px; width:700px;
+  }
+  .ctrl-row { display:flex; align-items:center; gap:8px; font-size:10px; letter-spacing:2px; }
+  .ctrl-label { color:#007700; width:80px; }
+
+  .btn {
+    border:1px solid #2A4A2A; background:transparent;
+    color:#007700; font-family:inherit; font-size:10px;
+    letter-spacing:2px; padding:5px 14px; cursor:pointer;
+    transition:all 0.1s;
+  }
+  .btn:hover { border-color:#00CC00; color:#33FF33; }
+  .btn.active { background:#1A3A1A; border-color:#33FF33; color:#33FF33; box-shadow:0 0 8px rgba(0,255,0,0.2); }
+  .btn.fire {
+    background:#33FF33; color:#070C07; border-color:#33FF33;
+    font-size:12px; padding:7px 30px; letter-spacing:4px;
+    box-shadow:0 0 12px rgba(0,255,0,0.4);
+    font-weight:bold;
+  }
+  .btn.fire:hover { background:#00FF00; }
+  .btn.fire:disabled { opacity:0.3; cursor:not-allowed; }
+  .btn.ne-active    { border-color:#007700; color:#007700; }
+  .btn.dis-active   { border-color:#FFAA00; color:#FFAA00; background:#1A1200; }
+  .btn.dest-active  { border-color:#FF3300; color:#FF3300; background:#1A0500; }
+  .btn.ram-active   { border-color:#FF8800; color:#FF8800; background:#1A0E00; box-shadow:0 0 10px rgba(255,120,0,0.35); }
+
+  .stat-bar {
+    display:flex; gap:24px; font-size:9px; color:#007700;
+    letter-spacing:1px; border-top:1px solid #1A2E1A; padding-top:8px; width:100%;
+    justify-content:center;
+  }
+  .stat-bar span { color:#00AA00; }
+</style>
+</head>
+<body>
+
+<h1>▓▓▓ OGRE COMBAT EFFECTS DEMO ▓▓▓</h1>
+
+<canvas id="fx" width="700" height="360"></canvas>
+
+<div class="ctrl-panel">
+  <div class="ctrl-row">
+    <span class="ctrl-label">WEAPON</span>
+    <button class="btn active" id="btn-missile" onclick="setWeapon('missile')">MISSILE</button>
+    <button class="btn" id="btn-gun"     onclick="setWeapon('gun')">GUN / HOWITZER</button>
+    <button class="btn" id="btn-inf"     onclick="setWeapon('infantry')">INFANTRY</button>
+    <button class="btn" id="btn-ram"     onclick="setWeapon('ram')">RAM</button>
+  </div>
+  <div class="ctrl-row">
+    <span class="ctrl-label">RESULT</span>
+    <button class="btn active ne-active"  id="btn-ne"   onclick="setResult('NE')">NO EFFECT</button>
+    <button class="btn"        id="btn-d"    onclick="setResult('D')">DISABLED</button>
+    <button class="btn"        id="btn-x"    onclick="setResult('X')">DESTROYED</button>
+  </div>
+  <div class="ctrl-row">
+    <button class="btn fire" id="fire-btn" onclick="fire()">▶ FIRE</button>
+  </div>
+  <div class="stat-bar" id="stat-bar">
+    ATK <span>6/5</span> &nbsp;·&nbsp; DEF <span>D3</span> &nbsp;·&nbsp; RANGE <span>5 HEX</span> &nbsp;·&nbsp; TYPE <span>MISSILE</span>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('fx');
+const ctx = canvas.getContext('2d');
+
+// ── SOURCE & TARGET ──────────────────────────────────────────
+const SRC = { x: 155, y: 180 };
+const TGT = { x: 545, y: 180 };
+const HEX_R = 52;
+
+// ── SVG 에셋 프리로드 ─────────────────────────────────────────
+const SVG_IMGS = {};
+const COLOR_CACHE = {};
+
+function preloadSVGs() {
+  const ts = Date.now();
+  ['ogre_mk3', 'heavy_tank'].forEach(n => {
+    const img = new Image();
+    img.src = `assets/${n}.svg?v=${ts}`;
+    SVG_IMGS[n] = img;
+  });
+}
+preloadSVGs();
+
+// PNG/SVG → CRT 컬러 변환 (흰 배경 → 투명, 어두운 픽셀 → 목표색)
+function colorizeImage(img, color, w, h) {
+  const key = `${img.src}|${color}|${w}|${h}`;
+  if (COLOR_CACHE[key]) return COLOR_CACHE[key];
+
+  const off = document.createElement('canvas');
+  off.width = w; off.height = h;
+  const oc = off.getContext('2d');
+  oc.drawImage(img, 0, 0, w, h);
+
+  const tmp = document.createElement('canvas');
+  tmp.width = tmp.height = 1;
+  const tc = tmp.getContext('2d');
+  tc.fillStyle = color; tc.fillRect(0, 0, 1, 1);
+  const cd = tc.getImageData(0, 0, 1, 1).data;
+  const tr = cd[0], tg = cd[1], tb = cd[2];
+
+  const imageData = oc.getImageData(0, 0, w, h);
+  const d = imageData.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const r = d[i], g = d[i+1], b = d[i+2], a = d[i+3];
+    if (a === 0) continue;
+    const lum = (r * 0.299 + g * 0.587 + b * 0.114) / 255;
+    if (lum > 0.80) {
+      d[i+3] = 0;
+    } else {
+      const intensity = Math.pow(1 - lum, 0.65);
+      d[i]   = Math.round(tr * intensity);
+      d[i+1] = Math.round(tg * intensity);
+      d[i+2] = Math.round(tb * intensity);
+      d[i+3] = Math.min(255, Math.round(180 + 75 * intensity));
+    }
+  }
+  oc.putImageData(imageData, 0, 0);
+  COLOR_CACHE[key] = off;
+  return off;
+}
+
+// 둥근 모서리 사각형 경로
+function rrectPath(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+// 토큰 렌더링 (index.html의 drawToken과 동일한 셀 스타일)
+function drawTokenFX(x, y, svgKey, color, destroyed) {
+  const tw = HEX_R * 2, th = HEX_R * 2;
+  const br = HEX_R * 0.12;
+
+  ctx.save(); ctx.translate(x, y);
+
+  // ① 배경
+  ctx.fillStyle = destroyed ? '#1A0505' : '#030803';
+  ctx.shadowColor = 'rgba(0,0,0,0.8)';
+  ctx.shadowBlur = 6; ctx.shadowOffsetX = 2; ctx.shadowOffsetY = 2;
+  rrectPath(-tw/2, -th/2, tw, th, br);
+  ctx.fill();
+  ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
+
+  // ② 테두리 + 글로우
+  ctx.strokeStyle = color; ctx.lineWidth = Math.max(1.5, HEX_R * 0.09);
+  ctx.shadowColor = color; ctx.shadowBlur = 14;
+  rrectPath(-tw/2, -th/2, tw, th, br);
+  ctx.stroke(); ctx.shadowBlur = 0;
+
+  // ③ SVG 이미지
+  const img = SVG_IMGS[svgKey];
+  if (img && img.complete && img.naturalWidth > 0) {
+    const iw = tw * 0.92, ih = th * 0.92;
+    const ci = colorizeImage(img, color, Math.round(iw * 3), Math.round(ih * 3));
+    ctx.shadowColor = color; ctx.shadowBlur = 10;
+    ctx.drawImage(ci, -iw/2, -ih/2, iw, ih);
+    ctx.shadowBlur = 0;
+  } else {
+    // 폴백 텍스트
+    ctx.fillStyle = color;
+    ctx.font = `bold ${Math.max(8, HEX_R * 0.36)}px "Share Tech Mono",monospace`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.shadowColor = color; ctx.shadowBlur = 8;
+    ctx.fillText(svgKey === 'ogre_mk3' ? 'OGRE' : 'HVY', 0, 0);
+    ctx.shadowBlur = 0;
+  }
+
+  // ④ 파괴 X 오버레이
+  if (destroyed) {
+    ctx.globalAlpha = 0.7;
+    ctx.strokeStyle = '#FF3300'; ctx.lineWidth = 3;
+    ctx.shadowColor = '#FF3300'; ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.moveTo(-tw/2 + 8, -th/2 + 8); ctx.lineTo(tw/2 - 8, th/2 - 8);
+    ctx.moveTo(tw/2 - 8, -th/2 + 8); ctx.lineTo(-tw/2 + 8, th/2 - 8);
+    ctx.stroke();
+    ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+  }
+
+  ctx.restore();
+}
+
+let weapon = 'missile';
+let result = 'NE';
+let animating = false;
+let particles = [];
+let overlays  = [];
+// ── 프로젝타일 전역 상태 (메인 루프에서 그림) ──
+let projectile = null;
+// { type:'missile'|'shell', x, y, angle, tLinear, trail:[], done:false }
+
+const STATS = {
+  missile:  { atk:'6/5',          def:'D3',    range:'5 HEX',   type:'MISSILE' },
+  gun:      { atk:'4-6/2-8',      def:'D1~D3', range:'2-8 HEX', type:'GUN/HOWITZER' },
+  infantry: { atk:'1-3/1',        def:'D1~D3', range:'1 HEX',   type:'INFANTRY' },
+  ram:      { atk:'D6:1~3=D 4~6=X', def:'—',  range:'CONTACT', type:'RAM' },
+};
+
+// ── 토큰 위치 (RAM 애니메이션에서 변경됨) ─────────────────────
+let srcPos = { x: SRC.x, y: SRC.y };
+let tgtPos = { x: TGT.x, y: TGT.y };
+
+// ── HELPERS ──────────────────────────────────────────────────
+function lerp(a, b, t) { return a + (b - a) * t; }
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+function randRange(a, b) { return a + Math.random() * (b - a); }
+function randItem(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+// ── HEX DRAW ─────────────────────────────────────────────────
+function drawHex(x, y, r, fillColor, strokeColor, glowColor, label, sublabel) {
+  ctx.save();
+  ctx.beginPath();
+  for (let i = 0; i < 6; i++) {
+    const a = Math.PI / 3 * i;
+    i === 0
+      ? ctx.moveTo(x + r * Math.cos(a), y + r * Math.sin(a))
+      : ctx.lineTo(x + r * Math.cos(a), y + r * Math.sin(a));
+  }
+  ctx.closePath();
+  ctx.fillStyle = fillColor; ctx.fill();
+  if (glowColor) { ctx.shadowColor = glowColor; ctx.shadowBlur = 14; }
+  ctx.strokeStyle = strokeColor; ctx.lineWidth = 2; ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  if (label) {
+    ctx.font = 'bold 14px "Share Tech Mono",monospace';
+    ctx.fillStyle = strokeColor; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.shadowColor = glowColor || strokeColor; ctx.shadowBlur = 8;
+    ctx.fillText(label, x, y - 10);
+    if (sublabel) {
+      ctx.font = '10px "Share Tech Mono",monospace'; ctx.shadowBlur = 4;
+      ctx.fillText(sublabel, x, y + 10);
+    }
+  }
+  ctx.restore();
+}
+
+function drawScene(srcDestroyed) {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#050A05'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Grid dots
+  ctx.fillStyle = '#0D1A0D';
+  for (let gx = 20; gx < canvas.width; gx += 28) {
+    for (let gy = 20; gy < canvas.height; gy += 28) {
+      ctx.beginPath(); ctx.arc(gx, gy, 1, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  // 두 토큰이 겹칠 때 OGRE가 위에 오도록 드로우 순서 결정
+  // 캔버스는 나중에 그린 것이 위 → 겹치면 OGRE를 나중에 그림
+  const overlapping = srcPos.x + HEX_R > tgtPos.x - HEX_R;
+  const tColor = srcDestroyed ? '#FF3300' : '#00AA00';
+
+  if (overlapping) {
+    // Target 먼저 → OGRE가 위
+    drawTokenFX(tgtPos.x, tgtPos.y, 'heavy_tank', tColor, srcDestroyed);
+    drawTokenFX(srcPos.x, srcPos.y, 'ogre_mk3', '#33FF33', false);
+  } else {
+    // 기본 순서
+    drawTokenFX(srcPos.x, srcPos.y, 'ogre_mk3', '#33FF33', false);
+    drawTokenFX(tgtPos.x, tgtPos.y, 'heavy_tank', tColor, srcDestroyed);
+  }
+
+  // Range indicator (고정 좌표)
+  ctx.save();
+  ctx.strokeStyle = '#1A3A1A'; ctx.lineWidth = 1; ctx.setLineDash([4,5]);
+  ctx.beginPath(); ctx.moveTo(SRC.x + HEX_R, SRC.y); ctx.lineTo(TGT.x - HEX_R, TGT.y);
+  ctx.stroke(); ctx.setLineDash([]);
+  ctx.restore();
+
+  // Labels
+  ctx.save();
+  ctx.font = '9px "Share Tech Mono",monospace';
+  ctx.fillStyle = '#007700'; ctx.textAlign = 'center';
+  ctx.fillText('ATTACKER', SRC.x, SRC.y + HEX_R + 14);
+  ctx.fillText('TARGET',   TGT.x, TGT.y + HEX_R + 14);
+  ctx.restore();
+}
+
+// ── PARTICLE SYSTEM ──────────────────────────────────────────
+function addParticle(x, y, vx, vy, life, color, size, blur, char) {
+  particles.push({ x, y, vx, vy, life, maxLife: life, color, size, blur: blur||6, char });
+}
+
+function spawnExplosion(x, y, count, colors, minSpd, maxSpd, chars, sizeRange) {
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const spd = randRange(minSpd, maxSpd);
+    addParticle(x, y,
+      Math.cos(angle) * spd, Math.sin(angle) * spd,
+      randRange(400, 900),
+      randItem(colors),
+      randRange(sizeRange[0], sizeRange[1]),
+      10,
+      chars ? randItem(chars) : null
+    );
+  }
+}
+
+function updateParticles(dt) {
+  particles = particles.filter(p => {
+    p.life -= dt;
+    p.x += p.vx * dt * 0.06;
+    p.y += p.vy * dt * 0.06;
+    p.vy += dt * 0.04; // gravity
+    return p.life > 0;
+  });
+}
+
+function drawParticles() {
+  particles.forEach(p => {
+    const a = clamp(p.life / p.maxLife, 0, 1);
+    ctx.save();
+    ctx.globalAlpha = a;
+    ctx.fillStyle = p.color;
+    ctx.strokeStyle = p.color;
+    ctx.shadowColor = p.color;
+    ctx.shadowBlur = p.blur;
+    if (p.char) {
+      ctx.font = `bold ${p.size}px monospace`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(p.char, p.x, p.y);
+    } else {
+      ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(0.5, p.size * a), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  });
+}
+
+// ── RING ANIMATION ───────────────────────────────────────────
+function addRing(x, y, maxR, duration, color) {
+  overlays.push({ type:'ring', x, y, t:0, maxT:duration, maxR, color });
+}
+
+function addText(x, y, text, duration, color, size) {
+  overlays.push({ type:'text', x, y, t:0, maxT:duration, text, color, size:size||16 });
+}
+
+function addBadge(x, y, text, duration, color) {
+  overlays.push({ type:'badge', x, y, t:0, maxT:duration, text, color });
+}
+
+function addFlash(x, y, duration, color) {
+  overlays.push({ type:'flash', x, y, t:0, maxT:duration, color });
+}
+
+function addSpikes(x, y, count, length, duration, color) {
+  overlays.push({ type:'spikes', x, y, t:0, maxT:duration, count, length, color });
+}
+
+function updateOverlays(dt) {
+  overlays = overlays.filter(o => { o.t += dt; return o.t < o.maxT; });
+}
+
+function drawOverlays() {
+  overlays.forEach(o => {
+    const p = o.t / o.maxT;
+    ctx.save();
+    ctx.shadowColor = o.color; ctx.shadowBlur = 10;
+
+    if (o.type === 'ring') {
+      const r = o.maxR * p;
+      const alpha = 1 - p;
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = o.color; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(o.x, o.y, r, 0, Math.PI * 2); ctx.stroke();
+
+    } else if (o.type === 'flash') {
+      const alpha = 1 - p;
+      const r = 60 * (1 - p * 0.5);
+      const g = ctx.createRadialGradient(o.x, o.y, 0, o.x, o.y, r);
+      g.addColorStop(0, o.color + 'DD');
+      g.addColorStop(1, o.color + '00');
+      ctx.fillStyle = g; ctx.globalAlpha = alpha;
+      ctx.beginPath(); ctx.arc(o.x, o.y, r, 0, Math.PI * 2); ctx.fill();
+
+    } else if (o.type === 'spikes') {
+      const alpha = 1 - p;
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = o.color; ctx.lineWidth = 2;
+      for (let i = 0; i < o.count; i++) {
+        const a = (Math.PI * 2 / o.count) * i;
+        const len = o.length * (1 - p * 0.4);
+        ctx.shadowBlur = 12;
+        ctx.beginPath();
+        ctx.moveTo(o.x + Math.cos(a) * 6, o.y + Math.sin(a) * 6);
+        ctx.lineTo(o.x + Math.cos(a) * len, o.y + Math.sin(a) * len);
+        ctx.stroke();
+      }
+
+    } else if (o.type === 'text') {
+      const alpha = p < 0.2 ? p/0.2 : p > 0.7 ? 1-(p-0.7)/0.3 : 1;
+      const yOff = -20 * p;
+      ctx.globalAlpha = alpha;
+      ctx.font = `bold ${o.size}px "Share Tech Mono",monospace`;
+      ctx.fillStyle = o.color;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(o.text, o.x, o.y + yOff);
+
+    } else if (o.type === 'badge') {
+      const alpha = p < 0.15 ? p/0.15 : p > 0.75 ? 1-(p-0.75)/0.25 : 1;
+      ctx.globalAlpha = alpha;
+      const txt = o.text;
+      ctx.font = 'bold 13px "Share Tech Mono",monospace';
+      const w = ctx.measureText(txt).width + 20;
+      const h = 24;
+      const bx = o.x - w/2, by = o.y - h/2;
+      ctx.fillStyle = '#000'; ctx.fillRect(bx, by, w, h);
+      ctx.strokeStyle = o.color; ctx.lineWidth = 1.5; ctx.strokeRect(bx, by, w, h);
+      ctx.fillStyle = o.color;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(txt, o.x, o.y);
+    }
+    ctx.restore();
+  });
+}
+
+// ── HIT EFFECTS ──────────────────────────────────────────────
+function hitNE(x, y) {
+  addRing(x, y, 45, 600, '#007700');
+  addRing(x, y, 30, 400, '#00AA00');
+  addText(x, y - 65, 'NO EFFECT', 1000, '#007700', 13);
+}
+
+function hitDisabled(x, y) {
+  addFlash(x, y, 400, '#FFAA00');
+  addSpikes(x, y, 8, 40, 500, '#FFAA00');
+  addRing(x, y, 50, 700, '#FFAA00');
+  spawnExplosion(x, y, 20, ['#FFAA00','#FF8800','#FFCC44'], 40, 100, null, [2, 5]);
+  addBadge(x, y - 72, 'DISABLED', 1400, '#FFAA00');
+  // Smoke particles
+  for (let i = 0; i < 12; i++) {
+    setTimeout(() => {
+      const a = Math.random() * Math.PI * 2;
+      const s = randRange(15, 40);
+      addParticle(x + randRange(-8,8), y + randRange(-8,8),
+        Math.cos(a)*s, Math.sin(a)*s - 40,
+        randRange(600,1000), '#FFAA0066', randRange(8,16), 4, null);
+    }, i * 60);
+  }
+}
+
+function hitDestroyed(x, y, onDone) {
+  addFlash(x, y, 600, '#FF3300');
+  addFlash(x, y, 300, '#FFAA00');
+
+  // Multiple rings
+  [0, 120, 250].forEach(delay => {
+    setTimeout(() => {
+      addRing(x, y, 30 + delay, 700, '#FF3300');
+      addRing(x, y, 50 + delay * 0.5, 900, '#FF6600');
+    }, delay);
+  });
+
+  // Spikes
+  addSpikes(x, y, 12, 55, 400, '#FF6600');
+  setTimeout(() => addSpikes(x, y, 8, 40, 350, '#FFAA00'), 150);
+
+  // ASCII explosion particles
+  spawnExplosion(x, y, 18, ['#FF3300','#FF6600','#FFAA00'], 60, 140,
+    ['*', '+', '×', '✕', '◉'], [14, 22]);
+
+  // Ember dots
+  spawnExplosion(x, y, 30, ['#FF3300','#FF5500','#FFCC00'], 50, 120,
+    null, [2, 6]);
+
+  // Smoke
+  for (let i = 0; i < 20; i++) {
+    setTimeout(() => {
+      const a = Math.random() * Math.PI * 2;
+      addParticle(x + randRange(-12,12), y + randRange(-12,12),
+        Math.cos(a)*randRange(10,30), Math.sin(a)*randRange(10,30) - 50,
+        randRange(800,1400), '#FF330044', randRange(10,22), 4, null);
+    }, i * 50);
+  }
+
+  addBadge(x, y - 76, 'DESTROYED', 1800, '#FF3300');
+
+  setTimeout(() => onDone && onDone(), 2000);
+}
+
+// ── MISSILE ATTACK ───────────────────────────────────────────
+function animateMissile(onHit) {
+  const TRAVEL = 1100;
+  const start  = performance.now();
+  let hitDone  = false;
+
+  const sx = SRC.x + HEX_R * 0.95;
+  const ex = TGT.x - HEX_R * 0.95;
+  const sy = SRC.y, ey = TGT.y;
+  const angle = Math.atan2(ey - sy, ex - sx);
+
+  // 발사 이펙트
+  for (let i = 0; i < 10; i++) {
+    const a = Math.PI + randRange(-0.4, 0.4);
+    addParticle(SRC.x+randRange(-4,4), SRC.y+randRange(-4,4),
+      Math.cos(a)*randRange(20,60), Math.sin(a)*randRange(20,60),
+      randRange(350,700), '#33FF3355', randRange(8,18), 4, null);
+  }
+  addFlash(SRC.x, SRC.y, 160, '#FFFFAA');
+  addSpikes(SRC.x, SRC.y, 6, 28, 200, '#CCFF88');
+
+  // 전역 projectile 초기화
+  projectile = { type:'missile', x:sx, y:sy, angle, tLinear:0, trail:[], done:false };
+
+  function frame(now) {
+    const elapsed = now - start;
+    const tLinear = clamp(elapsed / TRAVEL, 0, 1);
+    const tAccel  = Math.pow(tLinear, 1.8);
+    const mx = lerp(sx, ex, tAccel);
+    const my = lerp(sy, ey, tAccel);
+
+    // 전역 상태 업데이트 (메인 루프가 렌더링)
+    if (projectile && !projectile.done) {
+      projectile.x = mx; projectile.y = my;
+      projectile.tLinear = tLinear;
+      projectile.trail.push({ x:mx, y:my, a:1.0, speed:tLinear });
+      if (projectile.trail.length > 60) projectile.trail.shift();
+    }
+
+    // 엔진 연기
+    if (tLinear < 0.95 && tLinear > 0.05 && Math.random() < 0.4) {
+      const ba = angle + Math.PI + randRange(-0.25, 0.25);
+      addParticle(mx, my, Math.cos(ba)*lerp(15,5,tLinear)+randRange(-4,4),
+        Math.sin(ba)*lerp(15,5,tLinear)+randRange(-4,4),
+        randRange(150,320), '#33FF3333', randRange(4,10), 3, null);
+    }
+
+    if (tLinear >= 1 && !hitDone) {
+      hitDone = true;
+      if (projectile) projectile.done = true;
+      onHit && onHit(TGT.x, TGT.y);
+    }
+    if (tLinear < 1) requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
+
+// ── GUN / HOWITZER ATTACK ────────────────────────────────────
+function animateGun(onHit) {
+  const TRAVEL = 720;  // 2.5배 가속 (1800→720ms)
+  const start = performance.now();
+  let hitDone = false;
+
+  // Muzzle flash
+  addFlash(SRC.x, SRC.y, 180, '#EEFFCC');
+  addSpikes(SRC.x, SRC.y, 8, 38, 200, '#FFFF99');
+  // Shockwave ring
+  addRing(SRC.x, SRC.y, 35, 300, '#CCFFCC');
+
+  // Sound-like ripple (concentric rings)
+  [0,60,120].forEach(d => setTimeout(() => addRing(SRC.x, SRC.y, 22, 250, '#33FF3388'), d));
+
+  // Smoke
+  for (let i = 0; i < 6; i++) {
+    addParticle(SRC.x + randRange(-5,5), SRC.y + randRange(-5,5),
+      randRange(-20,20), randRange(-50,-20),
+      randRange(400,700), '#33FF3333', randRange(10,18), 3, null);
+  }
+
+  function frame(now) {
+    const elapsed = now - start;
+    const t = clamp(elapsed / TRAVEL, 0, 1);
+    const tLinear = t;
+    // Fast arc
+    const mx = lerp(SRC.x + HEX_R, TGT.x - HEX_R, t);
+    const arcY = -40 * Math.sin(Math.PI * t);
+    const my = lerp(SRC.y, TGT.y, t) + arcY;
+    // 포탄 진행 방향 각도 (호 포함)
+    const nextT = Math.min(t + 0.05, 1);
+    const nx = lerp(SRC.x + HEX_R, TGT.x - HEX_R, nextT);
+    const ny = lerp(SRC.y, TGT.y, nextT) - 40 * Math.sin(Math.PI * nextT);
+    const angle = Math.atan2(ny - my, nx - mx);
+
+    // 전역 projectile 업데이트 (메인 루프가 렌더링)
+    if (projectile && !projectile.done) {
+      projectile.x = mx; projectile.y = my;
+      projectile.angle = angle; projectile.tLinear = t;
+      projectile.trail.push({ x:mx, y:my, a:1.0 });
+      if (projectile.trail.length > 25) projectile.trail.shift();
+    }
+
+    if (t >= 1 && !hitDone) {
+      hitDone = true;
+      if (projectile) projectile.done = true;
+      onHit && onHit(TGT.x, TGT.y);
+    }
+    if (t < 1) requestAnimationFrame(frame);
+  }
+
+  // 전역 projectile 초기화
+  projectile = { type:'shell', x:SRC.x+HEX_R, y:SRC.y, angle:0, tLinear:0, trail:[], done:false };
+  requestAnimationFrame(frame);
+}
+
+// ── INFANTRY ATTACK ──────────────────────────────────────────
+function animateInfantry(onHit) {
+  const TRAVEL = 350;
+  const start = performance.now();
+  let hitDone = false;
+
+  // Multiple muzzle flashes
+  const burstCount = 5;
+  const spread = 22;
+  const bullets = [];
+
+  for (let i = 0; i < burstCount; i++) {
+    const delay = i * 40;
+    const spreadY = (i - burstCount/2) * (spread / burstCount);
+    const bSrc = { x: SRC.x + HEX_R*0.85, y: SRC.y + spreadY };
+    const bTgt = { x: TGT.x - HEX_R*0.85, y: TGT.y + spreadY * 0.3 + randRange(-10,10) };
+    bullets.push({ src: bSrc, tgt: bTgt, delay, done: false });
+
+    // Muzzle flash per bullet
+    setTimeout(() => {
+      addFlash(bSrc.x, bSrc.y, 120, '#CCFFCC');
+      addSpikes(bSrc.x, bSrc.y, 4, 18, 150, '#EEFFEE');
+    }, delay);
+  }
+
+  function frame(now) {
+    const elapsed = now - start;
+
+    bullets.forEach(b => {
+      const bt = clamp((elapsed - b.delay) / TRAVEL, 0, 1);
+      if (bt <= 0) return;
+
+      const bx = lerp(b.src.x, b.tgt.x, bt);
+      const by = lerp(b.src.y, b.tgt.y, bt);
+
+      // Bullet trace (line)
+      const traceLen = 28;
+      const prevT = clamp(bt - 0.15, 0, 1);
+      const px = lerp(b.src.x, b.tgt.x, prevT);
+      const py = lerp(b.src.y, b.tgt.y, prevT);
+
+      ctx.save();
+      ctx.strokeStyle = '#CCFFCC';
+      ctx.lineWidth = 1.5;
+      ctx.shadowColor = '#EEFFEE'; ctx.shadowBlur = 6;
+      ctx.globalAlpha = bt < 1 ? 0.9 : 0;
+      ctx.beginPath();
+      ctx.moveTo(px, py); ctx.lineTo(bx, by);
+      ctx.stroke();
+      ctx.restore();
+    });
+
+    const allDone = bullets.every(b => (elapsed - b.delay) >= TRAVEL);
+    if (allDone && !hitDone) {
+      hitDone = true;
+      onHit && onHit(TGT.x, TGT.y);
+    }
+    if (!hitDone) requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
+
+
+// ── 프로젝타일 렌더링 (메인 루프에서 호출) ───────────────────
+function drawProjectile() {
+  if (!projectile || projectile.done) return;
+  const { type, x, y, angle, tLinear, trail } = projectile;
+
+  // 트레일
+  trail.forEach((pt, i) => {
+    if (pt.a <= 0) return;
+    const frac = i / trail.length;
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, pt.a) * 0.7;
+    ctx.fillStyle = type === 'shell' ? '#88CC44' : '#00CC00';
+    ctx.shadowColor = type === 'shell' ? '#AAFF44' : '#33FF33';
+    ctx.shadowBlur = 6;
+    ctx.beginPath(); ctx.arc(pt.x, pt.y, 1.5 + frac * 2.5, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  });
+
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+
+  if (type === 'missile') {
+    // ── 미사일 ──
+    const stretch = 1 + tLinear * 0.6;
+    ctx.scale(stretch, 1);
+    const glowR = 12 + tLinear * 10;
+    const g = ctx.createRadialGradient(4,0,0,4,0,glowR);
+    g.addColorStop(0,'rgba(255,255,160,0.85)'); g.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(4,0,glowR,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle='#CCFFCC'; ctx.lineWidth=2.5;
+    ctx.shadowColor='#FFFFFF'; ctx.shadowBlur=8+tLinear*12;
+    ctx.beginPath(); ctx.moveTo(-10,0); ctx.lineTo(9,0); ctx.stroke();
+    ctx.fillStyle='#FFFFFF'; ctx.shadowBlur=14+tLinear*8;
+    ctx.beginPath(); ctx.moveTo(9,-3); ctx.lineTo(16,0); ctx.lineTo(9,3); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle='#33FF33'; ctx.lineWidth=1.5; ctx.shadowBlur=5;
+    ctx.globalAlpha=1-tLinear*0.4;
+    ctx.beginPath(); ctx.moveTo(-10,0); ctx.lineTo(-15,-5); ctx.moveTo(-10,0); ctx.lineTo(-15,5); ctx.stroke();
+    ctx.globalAlpha=0.6+tLinear*0.4;
+    const glowR2 = 6+tLinear*10;
+    const eg = ctx.createRadialGradient(-12,0,0,-12,0,glowR2);
+    const hex = Math.round(100+tLinear*155).toString(16).padStart(2,'0');
+    eg.addColorStop(0,`#FFFF${hex}`); eg.addColorStop(0.4,'#FF8800AA'); eg.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=eg; ctx.beginPath(); ctx.arc(-12,0,glowR2,0,Math.PI*2); ctx.fill();
+
+  } else if (type === 'shell') {
+    // ── 포탄 (shell) ──
+    const glowR = 14 + tLinear * 8;
+    const g = ctx.createRadialGradient(6,0,0,6,0,glowR);
+    g.addColorStop(0,'rgba(255,255,160,0.85)'); g.addColorStop(0.5,'rgba(255,160,0,0.3)'); g.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(6,0,glowR,0,Math.PI*2); ctx.fill();
+
+    // 약협
+    ctx.shadowColor='#44FF44'; ctx.shadowBlur=10; ctx.fillStyle='#88CC44';
+    ctx.beginPath(); ctx.moveTo(-14,-4.5); ctx.lineTo(5,-4); ctx.lineTo(5,4); ctx.lineTo(-14,4.5); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='rgba(180,255,140,0.25)';
+    ctx.beginPath(); ctx.moveTo(-14,-4.5); ctx.lineTo(5,-4); ctx.lineTo(5,-1.5); ctx.lineTo(-14,-2); ctx.closePath(); ctx.fill();
+
+    // 탄두
+    ctx.fillStyle='#DDFFD0'; ctx.shadowColor='#FFFFFF'; ctx.shadowBlur=16;
+    ctx.beginPath(); ctx.moveTo(5,-4); ctx.lineTo(20,0); ctx.lineTo(5,4); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,0.3)';
+    ctx.beginPath(); ctx.moveTo(5,-4); ctx.lineTo(20,0); ctx.lineTo(10,-1.5); ctx.closePath(); ctx.fill();
+
+    // 림
+    ctx.fillStyle='#BBFFBB'; ctx.shadowColor='#33FF33'; ctx.shadowBlur=6;
+    ctx.fillRect(-17,-3.5,4,7);
+    ctx.strokeStyle='#00FF88'; ctx.lineWidth=0.8; ctx.shadowBlur=3;
+    ctx.strokeRect(-17,-3.5,4,7);
+
+    // 경계선
+    ctx.strokeStyle='#66FF66'; ctx.lineWidth=1; ctx.shadowBlur=4;
+    ctx.beginPath(); ctx.moveTo(5,-4); ctx.lineTo(5,4); ctx.stroke();
+
+  }
+
+  ctx.restore();
+}
+
+// ── RAM ATTACK ───────────────────────────────────────────────
+function animateRam(onHit) {
+  const CHARGE_MS = 360;
+  const GRIND_MS  = 760;
+  const RETURN_MS = 300;
+
+  const startX   = SRC.x;
+  const contactX = TGT.x - HEX_R;   // 두 셀이 겹치는 지점 (50% 침투)
+
+  let grindStart = 0;
+  let lastJolt   = 0;
+  let hitFired   = false;
+  let phase      = 'charge';
+  const t0       = performance.now();
+
+  // 접촉면 스파크 버스트
+  function spawnContactSparks(cx, cy, intensity) {
+    const cnt = Math.round(8 + intensity * 8);
+    for (let i = 0; i < cnt; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const s = randRange(50, 100 + intensity * 60);
+      addParticle(cx + randRange(-8, 8), cy + randRange(-10, 10),
+        Math.cos(a) * s, Math.sin(a) * s - 25,
+        randRange(150, 380 + intensity * 80),
+        randItem(['#FFFFFF','#CCFFCC','#AAFFAA','#FFFFAA','#88FF88']),
+        randRange(2, 4 + intensity * 3), 12, null);
+    }
+    // 접촉점 흰 플래시
+    addFlash(cx, cy, 55 + intensity * 65, '#FFFFFF');
+    addFlash(cx, cy, 30 + intensity * 40, '#AAFFAA');
+  }
+
+  // 발진 이펙트
+  addFlash(SRC.x, SRC.y, 160, '#AAFFAA');
+  addSpikes(SRC.x, SRC.y, 8, 30, 220, '#88FF88');
+  for (let i = 0; i < 8; i++) {
+    const a = Math.PI + randRange(-0.3, 0.3);
+    addParticle(SRC.x + randRange(-6, 6), SRC.y + randRange(-6, 6),
+      Math.cos(a) * randRange(30, 70), Math.sin(a) * randRange(15, 35),
+      randRange(250, 500), '#33FF3344', randRange(6, 14), 4, null);
+  }
+
+  function frame(now) {
+    const elapsed = now - t0;
+
+    // ── PHASE 1: CHARGE ──
+    if (phase === 'charge') {
+      const t = clamp(elapsed / CHARGE_MS, 0, 1);
+      const tEase = Math.pow(t, 1.5);   // 가속하며 돌진
+      srcPos.x = lerp(startX, contactX, tEase);
+      srcPos.y = SRC.y;
+
+      // 속도 트레일 파티클
+      if (t > 0.12 && t < 0.96 && Math.random() < 0.65) {
+        addParticle(
+          srcPos.x - HEX_R * 0.7 + randRange(-6, 6),
+          srcPos.y + randRange(-HEX_R * 0.35, HEX_R * 0.35),
+          randRange(-70, -25), randRange(-5, 5),
+          randRange(80, 200), '#33FF3333', randRange(5, 13), 3, null);
+      }
+
+      if (t >= 1) {
+        phase = 'grind';
+        grindStart = now;
+        lastJolt   = now - 999; // 즉시 첫 jolts 트리거
+      }
+
+    // ── PHASE 2: GRIND (드드득) ──
+    } else if (phase === 'grind') {
+      const gt = clamp((now - grindStart) / GRIND_MS, 0, 1);
+      const intensity = 1.0 - gt * 0.35;
+
+      // 매 프레임 마이크로 진동
+      const micro = 2.8 * intensity;
+      srcPos.x = contactX + randRange(-micro, micro);
+      srcPos.y = SRC.y    + randRange(-micro * 0.6, micro * 0.6);
+      tgtPos.x = TGT.x    + randRange(-micro * 0.55, micro * 0.55);
+      tgtPos.y = TGT.y    + randRange(-micro * 0.45, micro * 0.45);
+
+      // ~60ms 마다 큰 충격 (드득!)
+      if (now - lastJolt > 58 + randRange(0, 20)) {
+        lastJolt = now;
+        const jolt = (7 + randRange(0, 5)) * intensity;
+        srcPos.x = contactX + randRange(-jolt,       jolt      );
+        srcPos.y = SRC.y    + randRange(-jolt * 0.5, jolt * 0.5);
+        tgtPos.x = TGT.x    + randRange(-jolt * 0.5, jolt * 0.5);
+        tgtPos.y = TGT.y    + randRange(-jolt * 0.4, jolt * 0.4);
+
+        // 접촉점 스파크
+        const cx = (contactX + HEX_R + TGT.x - HEX_R) * 0.5
+                   + randRange(-10, 10);
+        spawnContactSparks(cx, SRC.y + randRange(-14, 14), intensity * 0.75);
+
+        // 중간중간 ASCII 파편
+        if (Math.random() < 0.4) {
+          addParticle(cx, SRC.y,
+            randRange(-60, 60), randRange(-80, -20),
+            randRange(300, 600),
+            randItem(['#FFFFFF','#AAFFAA','#FFFF88']),
+            randRange(12, 18), 8,
+            randItem(['✕','×','*','▓','▒']));
+        }
+      }
+
+      // 지속 글로우 라인 (접촉면 마찰열)
+      if (Math.random() < 0.3) {
+        const cx = contactX + HEX_R + randRange(-4, 4);
+        const cy = SRC.y + randRange(-HEX_R * 0.6, HEX_R * 0.6);
+        addParticle(cx, cy,
+          randRange(-15, 15), randRange(-30, 10),
+          randRange(100, 280), '#FFFFAA66', randRange(3, 7), 6, null);
+      }
+
+      if (gt >= 1 && !hitFired) {
+        hitFired = true;
+        // 최종 폭발성 스파크
+        spawnContactSparks((contactX + HEX_R + TGT.x - HEX_R) * 0.5, SRC.y, 1.5);
+        tgtPos.x = TGT.x; tgtPos.y = TGT.y;
+        onHit && onHit(TGT.x, TGT.y);
+        phase = 'return';
+      }
+
+    // ── PHASE 3: RETURN ──
+    } else if (phase === 'return') {
+      const rt = clamp((now - grindStart - GRIND_MS) / RETURN_MS, 0, 1);
+      const ease = 1 - Math.pow(1 - rt, 2);  // easeOutQuad
+      srcPos.x = lerp(contactX, startX, ease);
+      srcPos.y = SRC.y;
+
+      if (rt >= 1) {
+        srcPos.x = startX; srcPos.y = SRC.y;
+        return;
+      }
+    }
+
+    requestAnimationFrame(frame);
+  }
+
+  requestAnimationFrame(frame);
+}
+
+// ── MAIN LOOP ─────────────────────────────────────────────────
+let lastTime = null;
+let tgtDestroyed = false;
+
+function loop(now) {
+  if (!lastTime) lastTime = now;
+  const dt = now - lastTime;
+  lastTime = now;
+
+  // 트레일 페이드
+  if (projectile && !projectile.done) {
+    projectile.trail.forEach(pt => { pt.a -= 0.04; });
+    projectile.trail = projectile.trail.filter(p => p.a > 0);
+  }
+
+  updateParticles(dt);
+  updateOverlays(dt);
+
+  drawScene(tgtDestroyed);
+  drawProjectile();      // ← 메인 루프에서 프로젝타일 렌더링
+  drawParticles();
+  drawOverlays();
+
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+// ── CONTROLS ─────────────────────────────────────────────────
+function setWeapon(w) {
+  weapon = w;
+  ['btn-missile','btn-gun','btn-inf','btn-ram'].forEach(id => {
+    const b = document.getElementById(id);
+    if (b) b.classList.remove('active','ram-active');
+  });
+  const map = { missile:'btn-missile', gun:'btn-gun', infantry:'btn-inf', ram:'btn-ram' };
+  const btn = document.getElementById(map[w]);
+  if (btn) {
+    btn.classList.add('active');
+    if (w === 'ram') btn.classList.add('ram-active');
+  }
+  const s = STATS[w];
+  const statColor = '';
+  document.getElementById('stat-bar').innerHTML =
+    `ATK <span style="color:${statColor||'#00AA00'}">${s.atk}</span> &nbsp;·&nbsp; DEF <span>${s.def}</span> &nbsp;·&nbsp; RANGE <span>${s.range}</span> &nbsp;·&nbsp; TYPE <span style="color:${statColor||'#00AA00'}">${s.type}</span>`;
+}
+
+function setResult(r) {
+  result = r;
+  ['ne','d','x'].forEach(id => {
+    const b = document.getElementById('btn-'+id);
+    b.classList.remove('active','ne-active','dis-active','dest-active');
+  });
+  const map = { NE:['btn-ne','ne-active'], D:['btn-d','dis-active'], X:['btn-x','dest-active'] };
+  const [id, cls] = map[r];
+  document.getElementById(id).classList.add('active', cls);
+}
+
+function fire() {
+  if (animating) return;
+  animating = true;
+  tgtDestroyed = false;
+  particles = []; overlays = [];
+  // 토큰 위치 리셋
+  srcPos.x = SRC.x; srcPos.y = SRC.y;
+  tgtPos.x = TGT.x; tgtPos.y = TGT.y;
+  document.getElementById('fire-btn').disabled = true;
+
+  function onHit(x, y) {
+    if (result === 'NE')       { hitNE(x, y); setTimeout(done, 1200); }
+    else if (result === 'D')   { hitDisabled(x, y); setTimeout(done, 1800); }
+    else if (result === 'X')   { hitDestroyed(x, y, done); tgtDestroyed = true; }
+  }
+
+  function done() {
+    animating = false;
+    srcPos.x = SRC.x; srcPos.y = SRC.y;
+    tgtPos.x = TGT.x; tgtPos.y = TGT.y;
+    document.getElementById('fire-btn').disabled = false;
+  }
+
+  if (weapon === 'missile')       animateMissile(onHit);
+  else if (weapon === 'gun')      animateGun(onHit);
+  else if (weapon === 'infantry') animateInfantry(onHit);
+  else if (weapon === 'ram')      animateRam(onHit);
+}
+
+// Initial draw
+drawScene(false);
+</script>
+</body>
+</html>

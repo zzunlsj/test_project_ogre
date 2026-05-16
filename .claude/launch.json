@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "ogre-preview",
+      "runtimeExecutable": "C:\\Program Files (x86)\\GOG Galaxy\\python\\python.exe",
+      "runtimeArgs": ["-m", "http.server", "5174"],
+      "port": 5185
+    }
+  ]
+}

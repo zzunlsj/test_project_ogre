@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>OGRE Unit Icons v2</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+  :root {
+    --green:  #33FF33;
+    --green2: #00CC00;
+    --dim:    #006600;
+    --amber:  #FFAA00;
+    --red:    #FF3300;
+    --bg:     #080808;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: var(--bg);
+    color: var(--green);
+    font-family: 'Share Tech Mono', monospace;
+    padding: 28px 32px;
+  }
+  body::after {
+    content:''; position:fixed; inset:0;
+    background: repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.06) 2px,rgba(0,0,0,0.06) 4px);
+    pointer-events:none; z-index:9999;
+  }
+  h1 { font-size:11px; letter-spacing:5px; color:var(--dim);
+       border-bottom:1px solid #1A3A1A; padding-bottom:10px; margin-bottom:24px; }
+  .grid { display:flex; flex-wrap:wrap; gap:24px; }
+  .card { display:flex; flex-direction:column; align-items:center; gap:8px; width:120px; }
+
+  /* hex container */
+  .hex {
+    width:90px; height:90px; position:relative;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .hex-bg {
+    position:absolute; inset:0;
+    clip-path: polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);
+    background: #0A140A;
+  }
+  .hex svg.icon {
+    width:70px; height:70px; position:relative; z-index:1; overflow:visible;
+  }
+  .hex-border {
+    position:absolute; inset:0; z-index:2; pointer-events:none;
+  }
+
+  .label { font-size:9px; letter-spacing:2px; color:var(--green); text-align:center;
+           text-shadow:0 0 5px var(--green2); }
+  .stat  { font-size:8px; color:var(--dim); text-align:center; line-height:1.5; }
+
+  /* glow presets */
+  .g-green { filter: drop-shadow(0 0 3px #33FF33) drop-shadow(0 0 7px #00CC00); }
+  .g-amber { filter: drop-shadow(0 0 3px #FFAA00) drop-shadow(0 0 7px #AA6600); }
+  .g-red   { filter: drop-shadow(0 0 3px #FF3300); }
+
+  .sec-title { width:100%; font-size:9px; letter-spacing:3px; color:var(--dim); margin:16px 0 12px; }
+</style>
+</head>
+<body>
+<h1>OGRE UNIT ICONS v2 — SIDE PROFILE (ORIGINAL COUNTER STYLE)</h1>
+<div class="grid">
+
+<!-- ─────────── HEAVY TANK ─────────── -->
+<div class="card">
+  <div class="hex">
+    <div class="hex-bg"></div>
+    <svg class="icon g-green" viewBox="0 0 70 70" fill="none"
+         stroke="#33FF33" stroke-linecap="round" stroke-linejoin="round">
+      <!-- tracks (bottom) -->
+      <rect x="8"  y="44" width="54" height="12" rx="6" stroke-width="1.8"/>
+      <!-- road wheels -->
+      <circle cx="18" cy="50" r="4" stroke-width="1.2" fill="#0A140A"/>
+      <circle cx="30" cy="50" r="4" stroke-width="1.2" fill="#0A140A"/>
+      <circle cx="42" cy="50" r="4" stroke-width="1.2" fill="#0A140A"/>
+      <circle cx="54" cy="50" r="4" stroke-width="1.2" fill="#0A140A"/>
+      <!-- hull body -->
+      <rect x="10" y="32" width="50" height="14" rx="2" stroke-width="1.8"/>
+      <!-- front slope -->
+      <path d="M10 32 L18 24" stroke-width="2"/>
+      <!-- rear -->
+      <line x1="60" y1="32" x2="60" y2="44" stroke-width="2"/>
+      <!-- turret -->
+      <rect x="24" y="20" width="28" height="13" rx="3" stroke-width="1.8"/>
+      <!-- gun barrel (pointing right) -->
+      <line x1="52" y1="24" x2="66" y2="24" stroke-width="3"/>
+      <!-- barrel tip -->
+      <line x1="64" y1="22" x2="66" y2="24" stroke-width="1.5"/>
+      <line x1="64" y1="26" x2="66" y2="24" stroke-width="1.5"/>
+      <!-- commander hatch -->
+      <circle cx="35" cy="20" r="3" stroke-width="1.2"/>
+    </svg>
+    <svg class="hex-border" viewBox="0 0 90 90" fill="none">
+      <polygon points="45,2 88,23 88,67 45,88 2,67 2,23"
+               stroke="#1A441A" stroke-width="1.5"/>
+    </svg>
+  </div>
+  <div class="label">HEAVY TANK</div>
+  <div class="stat">ATK 4/2 · DEF 3<br>MOV 3</div>
+</div>
+
+<!-- ─────────── MISSILE TANK ─────────── -->
+<div class="card">
+  <div class="hex">
+    <div class="hex-bg"></div>
+    <svg class="icon g-green" viewBox="0 0 70 70" fill="none"
+         stroke="#33FF33" stroke-linecap="round" stroke-linejoin="round">
+      <!-- tracks -->
+      <rect x="8" y="44" width="54" height="12" rx="6" stroke-width="1.8"/>
+      <circle cx="18" cy="50" r="4" stroke-width="1.2" fill="#0A140A"/>
+      <circle cx="30" cy="50" r="4" stroke-width="1.2" fill="#0A140A"/>
+      <circle cx="42" cy="50" r="4" stroke-width="1.2" fill="#0A140A"/>
+      <circle cx="54" cy="50" r="4" stroke-width="1.2" fill="#0A140A"/>
+      <!-- hull -->
+      <rect x="10" y="34" width="50" height="12" rx="2" stroke-width="1.8"/>
+      <path d="M10 34 L18 26" stroke-width="2"/>
+      <!-- launcher box (top, instead of turret) -->
+      <rect x="20" y="20" width="32" height="15" rx="2" stroke-width="1.8"/>
+      <!-- missile tubes (3 vertical) -->
+      <line x1="29" y1="20" x2="29" y2="13" stroke-width="2.5"/>
+      <line x1="36" y1="20" x2="36" y2="11" stroke-width="2.5"/>
+      <line x1="43" y1="20" x2="43" y2="13" stroke-width="2.5"/>
+      <!-- missile tips -->
+      <polygon points="29,13 27,16 31,16" fill="#33FF33" stroke="none"/>
+      <polygon points="36,11 34,14 38,14" fill="#33FF33" stroke="none"/>
+      <polygon points="43,13 41,16 45,16" fill="#33FF33" stroke="none"/>
+    </svg>
+    <svg class="hex-border" viewBox="0 0 90 90" fill="none">
+      <polygon points="45,2 88,23 88,67 45,88 2,67 2,23" stroke="#1A441A" stroke-width="1.5"/>
+    </svg>
+  </div>
+  <div class="label">MISSILE TANK</div>
+  <div class="stat">ATK 3/4 · DEF 2<br>MOV 2</div>
+</div>
+
+<!-- ─────────── LIGHT TANK ─────────── -->
+<div class="card">
+  <div class="hex">
+    <div class="hex-bg"></div>
+    <svg class="icon g-green" viewBox="0 0 70 70" fill="none"
+         stroke="#33FF33" stroke-linecap="round" stroke-linejoin="round">
+      <!-- tracks (smaller) -->
+      <rect x="10" y="46" width="48" height="10" rx="5" stroke-width="1.5"/>
+      <circle cx="20" cy="51" r="3.5" stroke-width="1.2" fill="#0A140A"/>
+      <circle cx="31" cy="51" r="3.5" stroke-width="1.2" fill="#0A140A"/>
+      <circle cx="42" cy="51" r="3.5" stroke-width="1.2" fill="#0A140A"/>
+      <circle cx="53" cy="51" r="3.5" stroke-width="1.2" fill="#0A140A"/>
+      <!-- hull (lower profile) -->
+      <rect x="12" y="35" width="44" height="12" rx="2" stroke-width="1.5"/>
+      <path d="M12 35 L20 28" stroke-width="1.8"/>
+      <!-- turret (smaller) -->
+      <rect x="26" y="22" width="22" height="14" rx="3" stroke-width="1.5"/>
+      <!-- barrel (shorter) -->
+      <line x1="48" y1="27" x2="61" y2="27" stroke-width="2.5"/>
+      <line x1="59" y1="25" x2="61" y2="27" stroke-width="1.2"/>
+      <line x1="59" y1="29" x2="61" y2="27" stroke-width="1.2"/>
+    </svg>
+    <svg class="hex-border" viewBox="0 0 90 90" fill="none">
+      <polygon points="45,2 88,23 88,67 45,88 2,67 2,23" stroke="#1A441A" stroke-width="1.5"/>
+    </svg>
+  </div>
+  <div class="label">LIGHT TANK</div>
+  <div class="stat">ATK 2/2 · DEF 2<br>MOV 3</div>
+</div>
+
+<!-- ─────────── GEV ─────────── -->
+<div class="card">
+  <div class="hex">
+    <div class="hex-bg"></div>
+    <svg class="icon g-green" viewBox="0 0 70 70" fill="none"
+         stroke="#33FF33" stroke-linecap="round" stroke-linejoin="round">
+      <!-- hover skirt (bottom, dashed) -->
+      <path d="M12 52 Q35 58 58 52" stroke-width="1.2" stroke-dasharray="3,2"/>
+      <!-- main hull (wedge shape, side view) -->
+      <path d="M8 46 L14 32 Q35 22 56 32 L62 46 Z" stroke-width="1.8"/>
+      <!-- hull detail line -->
+      <path d="M14 32 Q35 28 56 32" stroke-width="0.8" stroke-opacity="0.5"/>
+      <!-- turret (low, integrated) -->
+      <rect x="28" y="24" width="18" height="10" rx="3" stroke-width="1.5"/>
+      <!-- barrel (pointing forward/right) -->
+      <line x1="46" y1="28" x2="60" y2="28" stroke-width="2.5"/>
+      <line x1="58" y1="26" x2="60" y2="28" stroke-width="1.2"/>
+      <line x1="58" y1="30" x2="60" y2="28" stroke-width="1.2"/>
+      <!-- exhaust fan (rear) -->
+      <path d="M8 38 Q4 40 6 46" stroke-width="1.5"/>
+      <path d="M8 42 Q3 44 6 48" stroke-width="1" stroke-opacity="0.6"/>
+      <!-- forward intake -->
+      <line x1="56" y1="38" x2="62" y2="35" stroke-width="1.2" stroke-opacity="0.7"/>
+    </svg>
+    <svg class="hex-border" viewBox="0 0 90 90" fill="none">
+      <polygon points="45,2 88,23 88,67 45,88 2,67 2,23" stroke="#1A441A" stroke-width="1.5"/>
+    </svg>
+  </div>
+  <div class="label">GEV</div>
+  <div class="stat">ATK 2/2 · DEF 2<br>MOV 4+3</div>
+</div>
+
+<!-- ─────────── LIGHT GEV ─────────── -->
+<div class="card">
+  <div class="hex">
+    <div class="hex-bg"></div>
+    <svg class="icon g-green" viewBox="0 0 70 70" fill="none"
+         stroke="#33FF33" stroke-linecap="round" stroke-linejoin="round">
+      <!-- skirt -->
+      <path d="M14 52 Q35 57 56 52" stroke-width="1" stroke-dasharray="3,2"/>
+      <!-- hull (smaller, flatter) -->
+      <path d="M12 47 L18 35 Q35 26 52 35 L58 47 Z" stroke-width="1.5"/>
+      <path d="M18 35 Q35 31 52 35" stroke-width="0.7" stroke-opacity="0.5"/>
+      <!-- turret (small) -->
+      <rect x="29" y="26" width="14" height="9" rx="2.5" stroke-width="1.3"/>
+      <!-- barrel -->
+      <line x1="43" y1="30" x2="56" y2="30" stroke-width="2"/>
+      <line x1="54" y1="28.5" x2="56" y2="30" stroke-width="1"/>
+      <line x1="54" y1="31.5" x2="56" y2="30" stroke-width="1"/>
+      <!-- fan -->
+      <path d="M12 40 Q8 42 10 47" stroke-width="1.2"/>
+    </svg>
+    <svg class="hex-border" viewBox="0 0 90 90" fill="none">
+      <polygon points="45,2 88,23 88,67 45,88 2,67 2,23" stroke="#1A441A" stroke-width="1.5"/>
+    </svg>
+  </div>
+  <div class="label">LIGHT GEV</div>
+  <div class="stat">ATK 1/2 · DEF 1<br>MOV 4+3</div>
+</div>
+
+<!-- ─────────── HOWITZER ─────────── -->
+<div class="card">
+  <div class="hex">
+    <div class="hex-bg"></div>
+    <svg class="icon g-green" viewBox="0 0 70 70" fill="none"
+         stroke="#33FF33" stroke-linecap="round" stroke-linejoin="round">
+      <!-- wheels (2) -->
+      <circle cx="22" cy="56" r="6" stroke-width="1.8"/>
+      <circle cx="48" cy="56" r="6" stroke-width="1.8"/>
+      <!-- spokes -->
+      <line x1="22" y1="50" x2="22" y2="62" stroke-width="1"/>
+      <line x1="16" y1="56" x2="28" y2="56" stroke-width="1"/>
+      <line x1="48" y1="50" x2="48" y2="62" stroke-width="1"/>
+      <line x1="42" y1="56" x2="54" y2="56" stroke-width="1"/>
+      <!-- trail arms -->
+      <line x1="22" y1="50" x2="35" y2="44" stroke-width="1.8"/>
+      <line x1="48" y1="50" x2="35" y2="44" stroke-width="1.8"/>
+      <!-- gun shield -->
+      <path d="M24 44 L24 30 L32 28 L32 44 Z" stroke-width="1.5"/>
+      <!-- breech / gun body -->
+      <rect x="28" y="36" width="14" height="10" rx="2" stroke-width="1.5"/>
+      <!-- barrel (long, angled 45°) -->
+      <line x1="38" y1="38" x2="62" y2="14" stroke-width="3"/>
+      <!-- muzzle brake -->
+      <line x1="58" y1="11" x2="65" y2="17" stroke-width="1.5"/>
+      <line x1="58" y1="17" x2="65" y2="11" stroke-width="1.5"/>
+    </svg>
+    <svg class="hex-border" viewBox="0 0 90 90" fill="none">
+      <polygon points="45,2 88,23 88,67 45,88 2,67 2,23" stroke="#1A441A" stroke-width="1.5"/>
+    </svg>
+  </div>
+  <div class="label">HOWITZER</div>
+  <div class="stat">ATK 6/8 · DEF 1<br>MOV 0</div>
+</div>
+
+<!-- ─────────── INFANTRY ×3 ─────────── -->
+<div class="card">
+  <div class="hex">
+    <div class="hex-bg"></div>
+    <svg class="icon g-green" viewBox="0 0 70 70" fill="none"
+         stroke="#33FF33" stroke-linecap="round" stroke-linejoin="round">
+      <!-- 3 infantry side-view silhouettes -->
+      <!-- Figure 1 (left) -->
+      <circle cx="16" cy="22" r="4" stroke-width="1.5"/>
+      <line x1="16" y1="26" x2="16" y2="42" stroke-width="2"/>
+      <!-- arm with rifle -->
+      <line x1="16" y1="32" x2="8"  y2="30" stroke-width="1.5"/>
+      <line x1="16" y1="32" x2="24" y2="29" stroke-width="1.5"/>
+      <line x1="24" y1="29" x2="28" y2="24" stroke-width="1.8"/>
+      <!-- legs -->
+      <line x1="16" y1="42" x2="11" y2="54" stroke-width="1.5"/>
+      <line x1="16" y1="42" x2="21" y2="54" stroke-width="1.5"/>
+      <!-- boot -->
+      <line x1="11" y1="54" x2="7"  y2="54" stroke-width="1.5"/>
+      <line x1="21" y1="54" x2="25" y2="54" stroke-width="1.5"/>
+      <!-- helmet -->
+      <path d="M12 22 Q16 16 20 22" stroke-width="1.2"/>
+
+      <!-- Figure 2 (center) -->
+      <circle cx="35" cy="20" r="4" stroke-width="1.5"/>
+      <line x1="35" y1="24" x2="35" y2="40" stroke-width="2"/>
+      <line x1="35" y1="30" x2="27" y2="28" stroke-width="1.5"/>
+      <line x1="35" y1="30" x2="43" y2="27" stroke-width="1.5"/>
+      <line x1="43" y1="27" x2="47" y2="22" stroke-width="1.8"/>
+      <line x1="35" y1="40" x2="30" y2="52" stroke-width="1.5"/>
+      <line x1="35" y1="40" x2="40" y2="52" stroke-width="1.5"/>
+      <line x1="30" y1="52" x2="26" y2="52" stroke-width="1.5"/>
+      <line x1="40" y1="52" x2="44" y2="52" stroke-width="1.5"/>
+      <path d="M31 20 Q35 14 39 20" stroke-width="1.2"/>
+
+      <!-- Figure 3 (right) -->
+      <circle cx="54" cy="22" r="4" stroke-width="1.5"/>
+      <line x1="54" y1="26" x2="54" y2="42" stroke-width="2"/>
+      <line x1="54" y1="32" x2="46" y2="30" stroke-width="1.5"/>
+      <line x1="54" y1="32" x2="62" y2="29" stroke-width="1.5"/>
+      <line x1="62" y1="29" x2="66" y2="24" stroke-width="1.8"/>
+      <line x1="54" y1="42" x2="49" y2="54" stroke-width="1.5"/>
+      <line x1="54" y1="42" x2="59" y2="54" stroke-width="1.5"/>
+      <line x1="49" y1="54" x2="45" y2="54" stroke-width="1.5"/>
+      <line x1="59" y1="54" x2="63" y2="54" stroke-width="1.5"/>
+      <path d="M50 22 Q54 16 58 22" stroke-width="1.2"/>
+    </svg>
+    <svg class="hex-border" viewBox="0 0 90 90" fill="none">
+      <polygon points="45,2 88,23 88,67 45,88 2,67 2,23" stroke="#1A441A" stroke-width="1.5"/>
+    </svg>
+  </div>
+  <div class="label">INFANTRY ×3</div>
+  <div class="stat">ATK 3/1 · DEF 3<br>MOV 2</div>
+</div>
+
+<!-- ─────────── INFANTRY ×2 ─────────── -->
+<div class="card">
+  <div class="hex">
+    <div class="hex-bg"></div>
+    <svg class="icon g-green" viewBox="0 0 70 70" fill="none"
+         stroke="#33FF33" stroke-linecap="round" stroke-linejoin="round">
+      <!-- Figure 1 (left) -->
+      <circle cx="22" cy="18" r="4.5" stroke-width="1.5"/>
+      <line x1="22" y1="23" x2="22" y2="42" stroke-width="2.2"/>
+      <line x1="22" y1="31" x2="12" y2="28" stroke-width="1.5"/>
+      <line x1="22" y1="31" x2="32" y2="27" stroke-width="1.5"/>
+      <line x1="32" y1="27" x2="37" y2="21" stroke-width="2"/>
+      <line x1="22" y1="42" x2="16" y2="56" stroke-width="1.8"/>
+      <line x1="22" y1="42" x2="28" y2="56" stroke-width="1.8"/>
+      <line x1="16" y1="56" x2="11" y2="56" stroke-width="1.5"/>
+      <line x1="28" y1="56" x2="33" y2="56" stroke-width="1.5"/>
+      <path d="M18 18 Q22 12 26 18" stroke-width="1.2"/>
+      <!-- Figure 2 (right) -->
+      <circle cx="48" cy="18" r="4.5" stroke-width="1.5"/>
+      <line x1="48" y1="23" x2="48" y2="42" stroke-width="2.2"/>
+      <line x1="48" y1="31" x2="38" y2="28" stroke-width="1.5"/>
+      <line x1="48" y1="31" x2="58" y2="27" stroke-width="1.5"/>
+      <line x1="58" y1="27" x2="63" y2="21" stroke-width="2"/>
+      <line x1="48" y1="42" x2="42" y2="56" stroke-width="1.8"/>
+      <line x1="48" y1="42" x2="54" y2="56" stroke-width="1.8"/>
+      <line x1="42" y1="56" x2="37" y2="56" stroke-width="1.5"/>
+      <line x1="54" y1="56" x2="59" y2="56" stroke-width="1.5"/>
+      <path d="M44 18 Q48 12 52 18" stroke-width="1.2"/>
+    </svg>
+    <svg class="hex-border" viewBox="0 0 90 90" fill="none">
+      <polygon points="45,2 88,23 88,67 45,88 2,67 2,23" stroke="#1A441A" stroke-width="1.5"/>
+    </svg>
+  </div>
+  <div class="label">INFANTRY ×2</div>
+  <div class="stat">ATK 2/1 · DEF 2<br>MOV 2</div>
+</div>
+
+<!-- ─────────── INFANTRY ×1 ─────────── -->
+<div class="card">
+  <div class="hex">
+    <div class="hex-bg"></div>
+    <svg class="icon g-green" viewBox="0 0 70 70" fill="none"
+         stroke="#33FF33" stroke-linecap="round" stroke-linejoin="round">
+      <!-- Single figure (larger, centered) -->
+      <circle cx="32" cy="14" r="6" stroke-width="1.8"/>
+      <!-- helmet -->
+      <path d="M26 14 Q32 7 38 14" stroke-width="1.5"/>
+      <!-- body -->
+      <line x1="32" y1="20" x2="32" y2="44" stroke-width="2.5"/>
+      <!-- arms -->
+      <line x1="32" y1="28" x2="18" y2="24" stroke-width="1.8"/>
+      <line x1="32" y1="28" x2="46" y2="23" stroke-width="1.8"/>
+      <!-- rifle -->
+      <line x1="46" y1="23" x2="54" y2="15" stroke-width="2.2"/>
+      <!-- rifle stock -->
+      <line x1="46" y1="23" x2="48" y2="27" stroke-width="1.5"/>
+      <!-- legs -->
+      <line x1="32" y1="44" x2="24" y2="60" stroke-width="2"/>
+      <line x1="32" y1="44" x2="40" y2="60" stroke-width="2"/>
+      <!-- boots -->
+      <line x1="24" y1="60" x2="18" y2="60" stroke-width="2"/>
+      <line x1="40" y1="60" x2="46" y2="60" stroke-width="2"/>
+    </svg>
+    <svg class="hex-border" viewBox="0 0 90 90" fill="none">
+      <polygon points="45,2 88,23 88,67 45,88 2,67 2,23" stroke="#1A441A" stroke-width="1.5"/>
+    </svg>
+  </div>
+  <div class="label">INFANTRY ×1</div>
+  <div class="stat">ATK 1/1 · DEF 1<br>MOV 2</div>
+</div>
+
+<!-- ─────────── COMMAND POST ─────────── -->
+<div class="card">
+  <div class="hex">
+    <div class="hex-bg" style="background:#140D00"></div>
+    <svg class="icon g-amber" viewBox="0 0 70 70" fill="none"
+         stroke="#FFAA00" stroke-linecap="round" stroke-linejoin="round">
+      <!-- bunker base -->
+      <rect x="10" y="44" width="50" height="14" rx="2" stroke-width="1.8"/>
+      <!-- entry door -->
+      <rect x="28" y="44" width="14" height="14" rx="1" stroke-width="1.2"/>
+      <!-- bunker body (sloped armor) -->
+      <path d="M10 44 L16 28 L54 28 L60 44 Z" stroke-width="1.8"/>
+      <!-- observation slit -->
+      <rect x="22" y="34" width="10" height="4" rx="0.5" stroke-width="1.2"/>
+      <rect x="38" y="34" width="10" height="4" rx="0.5" stroke-width="1.2"/>
+      <!-- roof detail -->
+      <line x1="16" y1="28" x2="54" y2="28" stroke-width="0.8" stroke-opacity="0.5"/>
+      <!-- antenna -->
+      <line x1="35" y1="28" x2="35" y2="14" stroke-width="1.5"/>
+      <line x1="30" y1="17" x2="40" y2="17" stroke-width="1.2"/>
+      <line x1="27" y1="14" x2="35" y2="14" stroke-width="1"/>
+      <line x1="43" y1="14" x2="35" y2="14" stroke-width="1"/>
+      <!-- signal dish -->
+      <path d="M25 22 Q35 18 45 22" stroke-width="1.2"/>
+    </svg>
+    <svg class="hex-border" viewBox="0 0 90 90" fill="none">
+      <polygon points="45,2 88,23 88,67 45,88 2,67 2,23" stroke="#AA6600" stroke-width="2"/>
+    </svg>
+  </div>
+  <div class="label" style="color:var(--amber)">COMMAND POST</div>
+  <div class="stat">OBJECTIVE</div>
+</div>
+
+<!-- ─────────── OGRE MK.III ─────────── -->
+<div class="card" style="width:160px">
+  <div class="hex" style="width:140px;height:140px">
+    <div class="hex-bg" style="width:140px;height:140px;clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%)"></div>
+    <svg class="icon g-green" viewBox="0 0 120 80" fill="none" style="width:120px;height:80px"
+         stroke="#33FF33" stroke-linecap="round" stroke-linejoin="round">
+      <!-- massive tracks (top & bottom) -->
+      <rect x="4"  y="12" width="112" height="8"  rx="4" stroke-width="1.5"/>
+      <rect x="4"  y="60" width="112" height="8"  rx="4" stroke-width="1.5"/>
+      <!-- drive wheels -->
+      <circle cx="12"  cy="16" r="3" stroke-width="1" fill="#0A140A"/>
+      <circle cx="28"  cy="16" r="3" stroke-width="1" fill="#0A140A"/>
+      <circle cx="44"  cy="16" r="3" stroke-width="1" fill="#0A140A"/>
+      <circle cx="60"  cy="16" r="3" stroke-width="1" fill="#0A140A"/>
+      <circle cx="76"  cy="16" r="3" stroke-width="1" fill="#0A140A"/>
+      <circle cx="92"  cy="16" r="3" stroke-width="1" fill="#0A140A"/>
+      <circle cx="108" cy="16" r="3" stroke-width="1" fill="#0A140A"/>
+      <circle cx="12"  cy="64" r="3" stroke-width="1" fill="#0A140A"/>
+      <circle cx="28"  cy="64" r="3" stroke-width="1" fill="#0A140A"/>
+      <circle cx="44"  cy="64" r="3" stroke-width="1" fill="#0A140A"/>
+      <circle cx="60"  cy="64" r="3" stroke-width="1" fill="#0A140A"/>
+      <circle cx="76"  cy="64" r="3" stroke-width="1" fill="#0A140A"/>
+      <circle cx="92"  cy="64" r="3" stroke-width="1" fill="#0A140A"/>
+      <circle cx="108" cy="64" r="3" stroke-width="1" fill="#0A140A"/>
+      <!-- main hull body -->
+      <rect x="6" y="20" width="108" height="40" rx="3" stroke-width="2"/>
+      <!-- armor panel lines -->
+      <line x1="6"  y1="33" x2="114" y2="33" stroke-width="0.7" stroke-opacity="0.4"/>
+      <line x1="6"  y1="47" x2="114" y2="47" stroke-width="0.7" stroke-opacity="0.4"/>
+      <!-- main battery (large, center-left) -->
+      <rect x="28" y="22" width="26" height="16" rx="3" stroke-width="2"/>
+      <!-- main gun (very long) -->
+      <line x1="54" y1="29" x2="80" y2="29" stroke-width="3.5"/>
+      <line x1="76" y1="26" x2="80" y2="29" stroke-width="1.5"/>
+      <line x1="76" y1="32" x2="80" y2="29" stroke-width="1.5"/>
+      <!-- barrel rings -->
+      <line x1="60" y1="27" x2="60" y2="31" stroke-width="1.2"/>
+      <line x1="67" y1="27" x2="67" y2="31" stroke-width="1.2"/>
+      <!-- secondary battery L (small turret) -->
+      <rect x="10" y="24" width="16" height="11" rx="2" stroke-width="1.5"/>
+      <line x1="10" y1="29" x2="4"  y2="29" stroke-width="2.5"/>
+      <line x1="6"  y1="27" x2="4"  y2="29" stroke-width="1.2"/>
+      <line x1="6"  y1="31" x2="4"  y2="29" stroke-width="1.2"/>
+      <!-- secondary battery R -->
+      <rect x="76" y="24" width="16" height="11" rx="2" stroke-width="1.5"/>
+      <line x1="92" y1="29" x2="100" y2="29" stroke-width="2.5"/>
+      <line x1="98" y1="27" x2="100" y2="29" stroke-width="1.2"/>
+      <line x1="98" y1="31" x2="100" y2="29" stroke-width="1.2"/>
+      <!-- AP guns (small nubs along hull) -->
+      <rect x="8"  y="48" width="8" height="5" rx="1" stroke-width="1.2"/>
+      <line x1="8" y1="51" x2="4" y2="51" stroke-width="1.5"/>
+      <rect x="22" y="48" width="8" height="5" rx="1" stroke-width="1.2"/>
+      <line x1="22" y1="51" x2="18" y2="51" stroke-width="1.5"/>
+      <rect x="82" y="48" width="8" height="5" rx="1" stroke-width="1.2"/>
+      <line x1="90" y1="51" x2="94" y2="51" stroke-width="1.5"/>
+      <rect x="96" y="48" width="8" height="5" rx="1" stroke-width="1.2"/>
+      <line x1="104" y1="51" x2="108" y2="51" stroke-width="1.5"/>
+      <!-- missile launchers (top rear) -->
+      <rect x="94" y="18" width="6" height="8" rx="1" stroke-width="1.2"/>
+      <rect x="102" y="18" width="6" height="8" rx="1" stroke-width="1.2"/>
+      <line x1="97"  y1="18" x2="97"  y2="14" stroke-width="1.5"/>
+      <line x1="105" y1="18" x2="105" y2="14" stroke-width="1.5"/>
+      <polygon points="97,14 95,17 99,17" fill="#33FF33" stroke="none"/>
+      <polygon points="105,14 103,17 107,17" fill="#33FF33" stroke="none"/>
+      <!-- reactor vents (rear) -->
+      <rect x="96" y="52" width="18" height="6" rx="1.5" stroke-width="1.2"/>
+      <line x1="101" y1="52" x2="101" y2="58" stroke-width="0.8" stroke-opacity="0.6"/>
+      <line x1="106" y1="52" x2="106" y2="58" stroke-width="0.8" stroke-opacity="0.6"/>
+      <line x1="111" y1="52" x2="111" y2="58" stroke-width="0.8" stroke-opacity="0.6"/>
+    </svg>
+    <svg class="hex-border" viewBox="0 0 140 140" fill="none">
+      <polygon points="70,3 137,36 137,104 70,137 3,104 3,36"
+               stroke="#33FF33" stroke-width="2.5"/>
+    </svg>
+  </div>
+  <div class="label" style="font-size:10px;letter-spacing:3px">OGRE MK.III</div>
+  <div class="stat">Main×1 · Sec×2<br>AP×8 · MSL×2<br>TREAD 45 · M3</div>
+</div>
+
+<!-- ─── STATUS VARIANTS ─── -->
+<div class="sec-title">UNIT STATUS VARIANTS</div>
+
+<!-- DISABLED -->
+<div class="card">
+  <div class="hex">
+    <div class="hex-bg" style="background:#120D00"></div>
+    <svg class="icon g-amber" viewBox="0 0 70 70" fill="none"
+         stroke="#FFAA00" stroke-linecap="round" stroke-linejoin="round" opacity="0.7">
+      <rect x="8"  y="44" width="54" height="12" rx="6" stroke-width="1.5"/>
+      <circle cx="18" cy="50" r="4" stroke-width="1" fill="#120D00"/>
+      <circle cx="30" cy="50" r="4" stroke-width="1" fill="#120D00"/>
+      <circle cx="42" cy="50" r="4" stroke-width="1" fill="#120D00"/>
+      <circle cx="54" cy="50" r="4" stroke-width="1" fill="#120D00"/>
+      <rect x="10" y="32" width="50" height="14" rx="2" stroke-width="1.5"/>
+      <path d="M10 32 L18 24" stroke-width="1.8"/>
+      <rect x="24" y="20" width="28" height="13" rx="3" stroke-width="1.5"/>
+      <line x1="52" y1="24" x2="66" y2="24" stroke-width="2.5"/>
+    </svg>
+    <!-- D badge -->
+    <svg style="position:absolute;top:6px;right:6px;z-index:3" viewBox="0 0 20 20" width="22" height="22">
+      <rect x="1" y="1" width="18" height="18" rx="2" fill="#1A0D00" stroke="#FFAA00" stroke-width="1.5"/>
+      <text x="10" y="14" font-size="11" fill="#FFAA00" text-anchor="middle"
+            font-family="monospace" font-weight="bold">D</text>
+    </svg>
+    <svg class="hex-border" viewBox="0 0 90 90" fill="none">
+      <polygon points="45,2 88,23 88,67 45,88 2,67 2,23"
+               stroke="#664400" stroke-width="2" stroke-dasharray="5,3"/>
+    </svg>
+  </div>
+  <div class="label" style="color:var(--amber)">DISABLED</div>
+  <div class="stat">다음 턴 행동 불가</div>
+</div>
+
+<!-- DESTROYED -->
+<div class="card">
+  <div class="hex">
+    <div class="hex-bg" style="background:#100404"></div>
+    <svg class="icon" viewBox="0 0 70 70" fill="none"
+         stroke="#333" stroke-linecap="round" stroke-linejoin="round" opacity="0.5">
+      <rect x="8"  y="44" width="54" height="12" rx="6" stroke-width="1.5"/>
+      <rect x="10" y="32" width="50" height="14" rx="2" stroke-width="1.5"/>
+      <path d="M10 32 L18 24" stroke-width="1.8"/>
+      <rect x="24" y="20" width="28" height="13" rx="3" stroke-width="1.5"/>
+      <line x1="52" y1="24" x2="66" y2="24" stroke-width="2.5"/>
+    </svg>
+    <!-- X overlay -->
+    <svg style="position:absolute;inset:0;z-index:3" viewBox="0 0 90 90">
+      <line x1="15" y1="15" x2="75" y2="75" stroke="#FF3300" stroke-width="4"
+            stroke-linecap="round" filter="url(#glow)"/>
+      <line x1="75" y1="15" x2="15" y2="75" stroke="#FF3300" stroke-width="4"
+            stroke-linecap="round"/>
+    </svg>
+    <svg class="hex-border" viewBox="0 0 90 90" fill="none">
+      <polygon points="45,2 88,23 88,67 45,88 2,67 2,23"
+               stroke="#440000" stroke-width="2"/>
+    </svg>
+  </div>
+  <div class="label" style="color:var(--red)">DESTROYED</div>
+  <div class="stat">전투 불능</div>
+</div>
+
+</div>
+</body>
+</html>

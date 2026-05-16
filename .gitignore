@@ -1,0 +1,27 @@
+# ── Node.js ──────────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ── Vite / Build output ───────────────────────────────────────
+_workspace/game/dist/
+_workspace/game/.vite/
+*.local
+
+# ── OS ───────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Editor ───────────────────────────────────────────────────
+.vscode/
+*.swp
+*.swo
+
+# ── Logs ─────────────────────────────────────────────────────
+*.log
+logs/
+
+# ── Claude temp ──────────────────────────────────────────────
+.claude/tasks/
