@@ -7,37 +7,54 @@ import type { HexCoord, EdgeIndex } from '@/types';
 
 const SQRT3 = Math.sqrt(3);
 
-/** edge index (SE=0, S=1, SW=2, NW=3, N=4, NE=5) -> direction delta in offset coords */
+/**
+ * edge index → direction delta in offset coords
+ * Flat-top hexes, ODD columns shifted UP by R*√3/2.
+ *
+ * 검증: adjacent hex centers are at distance R*√3.
+ * EVEN col (c,r) center: (c*1.5R, r*R*√3)
+ * ODD  col (c,r) center: (c*1.5R, r*R*√3 - R*√3/2)
+ *
+ * EVEN col (c,r) 6 neighbors:
+ *   NE(0): ODD(c+1, r)   → dc=+1, dr= 0
+ *   S (1): EVN(c,  r+1)  → dc= 0, dr=+1
+ *   NW(2): ODD(c-1, r)   → dc=-1, dr= 0
+ *   SW(3): ODD(c-1, r+1) → dc=-1, dr=+1  ← 수정(was dr:-1)
+ *   N (4): EVN(c,  r-1)  → dc= 0, dr=-1
+ *   SE(5): ODD(c+1, r+1) → dc=+1, dr=+1  ← 수정(was dr:-1)
+ *
+ * ODD col (c,r) 6 neighbors:
+ *   SE(0): EVN(c+1, r)   → dc=+1, dr= 0  ← 수정(was dr:+1)
+ *   S (1): ODD(c,  r+1)  → dc= 0, dr=+1
+ *   SW(2): EVN(c-1, r)   → dc=-1, dr= 0  ← 수정(was dr:+1)
+ *   NW(3): EVN(c-1, r-1) → dc=-1, dr=-1  ← 수정(was dr: 0)
+ *   N (4): ODD(c,  r-1)  → dc= 0, dr=-1
+ *   NE(5): EVN(c+1, r-1) → dc=+1, dr=-1  ← 수정(was dr: 0)
+ */
 function neighborDelta(col: number, edge: EdgeIndex): { dc: number; dr: number } {
   const oddCol = (col % 2 + 2) % 2 === 1;
-  // flat-top, odd-q vertical layout (odd cols shifted UP)
-  // For a flat-top hex with odd-q, neighbors of an even col c at row r:
-  //   N (4): (c, r-1), S (1): (c, r+1)
-  //   NE(5): (c+1, r-1), SE(0): (c+1, r)
-  //   NW(3): (c-1, r-1), SW(2): (c-1, r)
-  // For odd col c:
-  //   N (4): (c, r-1), S (1): (c, r+1)
-  //   NE(5): (c+1, r),   SE(0): (c+1, r+1)
-  //   NW(3): (c-1, r),   SW(2): (c-1, r+1)
   if (!oddCol) {
+    // EVEN col
     switch (edge) {
-      case 0: return { dc: +1, dr:  0 };
-      case 1: return { dc:  0, dr: +1 };
-      case 2: return { dc: -1, dr:  0 };
-      case 3: return { dc: -1, dr: -1 };
-      case 4: return { dc:  0, dr: -1 };
-      case 5: return { dc: +1, dr: -1 };
+      case 0: return { dc: +1, dr:  0 };  // NE
+      case 1: return { dc:  0, dr: +1 };  // S
+      case 2: return { dc: -1, dr:  0 };  // NW
+      case 3: return { dc: -1, dr: +1 };  // SW  ← FIXED
+      case 4: return { dc:  0, dr: -1 };  // N
+      case 5: return { dc: +1, dr: +1 };  // SE  ← FIXED
     }
   } else {
+    // ODD col (shifted UP)
     switch (edge) {
-      case 0: return { dc: +1, dr: +1 };
-      case 1: return { dc:  0, dr: +1 };
-      case 2: return { dc: -1, dr: +1 };
-      case 3: return { dc: -1, dr:  0 };
-      case 4: return { dc:  0, dr: -1 };
-      case 5: return { dc: +1, dr:  0 };
+      case 0: return { dc: +1, dr:  0 };  // SE  ← FIXED
+      case 1: return { dc:  0, dr: +1 };  // S
+      case 2: return { dc: -1, dr:  0 };  // SW  ← FIXED
+      case 3: return { dc: -1, dr: -1 };  // NW  ← FIXED
+      case 4: return { dc:  0, dr: -1 };  // N
+      case 5: return { dc: +1, dr: -1 };  // NE  ← FIXED
     }
   }
+  return { dc: 0, dr: 0 };
 }
 
 /** Reverse of an edge: opposite side of the shared border. */
@@ -67,16 +84,21 @@ export class HexGrid {
     return pts;
   }
 
+  /**
+   * Offset → Cube 변환 (flat-top odd-q, ODD cols UP)
+   * z = row - ceil(col/2)  즉  row - (col + col%2) / 2
+   * 검증: (col=7,row=21)→z=17, (col=6,row=20)→z=17, distance=1 ✓
+   */
   offsetToCube(col: number, row: number): { x: number; y: number; z: number } {
     const x = col;
-    const z = row - ((col - (col & 1)) >> 1);
+    const z = row - ((col + (col & 1)) >> 1);  // FIXED: + instead of -
     const y = -x - z;
     return { x, y, z };
   }
 
   cubeToOffset(x: number, _y: number, z: number): { col: number; row: number } {
     const col = x;
-    const row = z + ((x - (x & 1)) >> 1);
+    const row = z + ((x + (x & 1)) >> 1);  // FIXED: + instead of -
     return { col, row };
   }
 
