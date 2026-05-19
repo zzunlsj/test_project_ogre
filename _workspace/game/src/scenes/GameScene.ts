@@ -929,12 +929,15 @@ export class GameScene extends Phaser.Scene {
     if (this.selectedUnitId !== o.id) {
       if (hex.col === o.col && hex.row === o.row) {
         this.selectedUnitId = o.id;
-        // Defender hexes are blockers (RAM-able by path traversal but not direct move-onto)
+        // OGRE: crater 진입 불가, 능선은 자유 통과
         this.moveRange = this.hexGrid.reachable(
           { col: o.col, row: o.row },
           remaining,
           this.craterSet,
-          this.defenderBlockers(),  // defenders block direct stop; will be RAM'd if traversed
+          this.defenderBlockers(),
+          new Set(),
+          this.ridgeMap,
+          true,
         );
         this.scheduleDraw();
       }
@@ -969,10 +972,11 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    // Normal move: compute path length (1 cost per hex; craters +1)
+    // Normal move: compute path length (1 cost per hex; crater 진입 불가)
     const path = this.hexGrid.path(
       { col: o.col, row: o.row }, hex, remaining,
       this.craterSet, this.defenderBlockers(),
+      new Set(), this.ridgeMap, true,
     );
     const steps = path?.length ?? this.hexGrid.distance({ col: o.col, row: o.row }, hex);
 
@@ -994,6 +998,9 @@ export class GameScene extends Phaser.Scene {
         o.movement - this.ogreMoveUsed,
         this.craterSet,
         this.defenderBlockers(),
+        new Set(),
+        this.ridgeMap,
+        true,
       );
     }
     this.scheduleDraw();
@@ -1221,12 +1228,15 @@ export class GameScene extends Phaser.Scene {
       const ogreHex = new Set<string>();
       const o = this.ogreCtrl.getStats();
       ogreHex.add(`${o.col},${o.row}`);
+      const unitCanCrossRidge = unitHere.type === 'INF';
       this.moveRange = this.hexGrid.reachable(
         { col: unitHere.col, row: unitHere.row },
         mp,
         this.craterSet,
         ogreHex,            // OGRE blocks
         friendlyHexes,      // friendlies are pass-through (cannot stop)
+        this.ridgeMap,
+        unitCanCrossRidge,
       );
       this.scheduleDraw();
     }
@@ -1547,7 +1557,7 @@ export class GameScene extends Phaser.Scene {
         const units = phase === 'defender-move'
           ? this.defenders.getOK()
           : this.defenders.getAliveGevs();
-        const plans = this.ai.planMoves(units, this.ogreCtrl.getStats(), this.craterSet, this.allBlockers());
+        const plans = this.ai.planMoves(units, this.ogreCtrl.getStats(), this.craterSet, this.allBlockers(), this.ridgeMap);
         for (const [id, target] of plans) {
           const u = this.defenders.getById(id);
           if (!u) continue;
@@ -1580,7 +1590,7 @@ export class GameScene extends Phaser.Scene {
     if (aiSide === 'ogre') {
       if (phase === 'ogre-move') {
         const o = this.ogreCtrl.getStats();
-        const reach = this.hexGrid.reachable({ col: o.col, row: o.row }, o.movement, this.craterSet, this.allBlockers());
+        const reach = this.hexGrid.reachable({ col: o.col, row: o.row }, o.movement, this.craterSet, this.allBlockers(), new Set(), this.ridgeMap, true);
         const cp = this.defenders.getCp();
         if (cp && reach.length > 0) {
           let best = reach[0];

@@ -303,11 +303,11 @@ export class SetupScene extends Phaser.Scene {
         // ── 존 색상 ──
         let fillHex = 0x001200; let fillAlpha = 0.55; // default green-tint
         if (row <= ZONE_NORTH_END) {
-          fillHex = 0xFFAA00; fillAlpha = 0.08;       // NORTHERN amber
+          fillHex = 0xFFAA00; fillAlpha = 0.08;       // NORTHERN amber (CP + 방어군 배치 가능)
         } else if (row >= ZONE_CENTRAL_START && row <= ZONE_CENTRAL_END) {
-          fillHex = 0x001040; fillAlpha = 0.35;       // CENTRAL blue
+          fillHex = 0x001040; fillAlpha = 0.35;       // CENTRAL blue (ATK ≤ 20)
         } else if (row >= 15 && row < ogreEntryRow(col)) {
-          fillHex = 0x002800; fillAlpha = 0.18;       // SOUTHERN green
+          fillHex = 0x202020; fillAlpha = 0.55;       // SOUTHERN grey (배치 불가)
         }
         // OGRE 진입 헥스 빨강
         if (isOgreEntry(col, row)) { fillHex = 0xFF3300; fillAlpha = 0.40; }
@@ -356,8 +356,8 @@ export class SetupScene extends Phaser.Scene {
         .setOrigin(0.5, 0.5).setAlpha(0.35),
     );
     this.mapTexts.push(
-      this.add.text(zx, yS, 'SOUTHERN', { fontFamily: '"Share Tech Mono", monospace', fontSize: `${zFs}px`, color: '#33FF33' })
-        .setOrigin(0.5, 0.5).setAlpha(0.30),
+      this.add.text(zx, yS, 'SOUTHERN (NO DEPLOY)', { fontFamily: '"Share Tech Mono", monospace', fontSize: `${zFs}px`, color: '#666666' })
+        .setOrigin(0.5, 0.5).setAlpha(0.55),
     );
   }
 
@@ -550,6 +550,12 @@ export class SetupScene extends Phaser.Scene {
     // ── 크레이터 헥스 금지 ──
     if (this.craterSet.has(`${col},${row}`)) {
       this.flashHint('CANNOT DEPLOY ON CRATER.', CRT.RED);
+      return;
+    }
+
+    // ── 방어군은 Southern 존(row 15+) 배치 불가 ──
+    if (row > ZONE_CENTRAL_END) {
+      this.flashHint('DEFENDERS CANNOT DEPLOY IN SOUTHERN ZONE.', CRT.RED);
       return;
     }
 

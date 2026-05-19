@@ -24,9 +24,8 @@ export const STANDARD_SCENARIO: ScenarioConfig = {
   // CP 허용 위치: Northern 존 (row 0-6 = R01-R07)
   cpAllowedZone: { rowMin: 0, rowMax: 6, colMin: 1, colMax: 13 },
 
-  // 방어군 배치 허용 존: Northern(row 0-6) + Central(row 7-14) + Southern(row 15-20)
-  // row 21은 OGRE 시작 행이므로 배치 불가
-  defenderPlacementZone: { rowMin: 0, rowMax: 20 },
+  // 방어군 배치 허용 존: Northern(row 0-6) + Central(row 7-14) — Southern 배치 불가
+  defenderPlacementZone: { rowMin: 0, rowMax: 14 },
 
   // Central 존 ATK 합 제한
   centralZone: { rowMin: 7, rowMax: 14, maxAtk: 20 },
@@ -49,11 +48,11 @@ export const STANDARD_SCENARIO: ScenarioConfig = {
     { type: 'GEV' as DefenderUnitType, col: 4, row: 9 },
     { type: 'GEV' as DefenderUnitType, col: 10, row: 9 },
 
-    // Southern 존 후방 지원
-    { type: 'HOW' as DefenderUnitType, col: 4, row: 15 },
-    { type: 'HOW' as DefenderUnitType, col: 10, row: 15 },
-    { type: 'MSL' as DefenderUnitType, col: 6, row: 16 },
-    { type: 'MSL' as DefenderUnitType, col: 8, row: 16 },
+    // Central 후방 (Southern 배치 불가 — HOW는 이동 불가이므로 가장 북쪽)
+    { type: 'HOW' as DefenderUnitType, col: 3, row: 12 },
+    { type: 'HOW' as DefenderUnitType, col: 11, row: 12 },
+    { type: 'MSL' as DefenderUnitType, col: 5, row: 13 },
+    { type: 'MSL' as DefenderUnitType, col: 9, row: 13 },
 
     // 보병 (Central): 4스쿼드 = ATK +4 → 총 18 ≤ 20
     { type: 'INF' as DefenderUnitType, col: 6, row: 11 },
@@ -70,16 +69,16 @@ export const STANDARD_SCENARIO: ScenarioConfig = {
   },
 };
 
-/** 장갑 유닛 슬롯 비용 (CP, INF는 슬롯 비용 없음) */
+/** 장갑 유닛 슬롯 비용 (CP, INF는 슬롯 비용 없음) — 모든 장갑 유닛 1슬롯 */
 export const ARMOR_SLOT_COST: Partial<Record<DefenderUnitType, number>> = {
-  HVY: 3,
-  MSL: 2,
-  GEV: 2,
-  HOW: 2,
+  HVY: 1,
+  MSL: 1,
+  GEV: 1,
+  HOW: 1,
 };
 
 /** 보병 1스쿼드 점수 비용 */
-export const INF_POINT_COST = 2;
+export const INF_POINT_COST = 1;
 
 /** 보병 최대 스쿼드 수 (스택당) */
 export const INF_MAX_SQUADS_PER_STACK = 3;

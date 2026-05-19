@@ -48,13 +48,10 @@ export function createOgreMk3(): OgreStats {
 }
 
 export const OGRE_MOVEMENT_TABLE: OgreMovementBand[] = [
-  { treadMin: 41, treadMax: 45, movement: 3 },
-  { treadMin: 31, treadMax: 40, movement: 2 },
-  { treadMin: 21, treadMax: 30, movement: 2 },
-  { treadMin: 11, treadMax: 20, movement: 1 },
-  { treadMin: 6,  treadMax: 10, movement: 1 },
-  { treadMin: 1,  treadMax: 5,  movement: 0 },
-  { treadMin: 0,  treadMax: 0,  movement: 0 },
+  { treadMin: 31, treadMax: 45, movement: 3 },  // M3
+  { treadMin: 16, treadMax: 30, movement: 2 },  // M2
+  { treadMin:  1, treadMax: 15, movement: 1 },  // M1
+  { treadMin:  0, treadMax:  0, movement: 0 },  // M0 (이동 불가)
 ];
 
 export const OGRE_RAM_RESULT = ['D', 'D', 'D', 'X', 'X', 'X'] as const;
@@ -74,15 +71,16 @@ export interface DefenderUnitTemplate {
   infPoints: number;
   secondaryMove?: number;
   indirect?: boolean;
+  canCrossRidge: boolean;
 }
 
 export const DEFENDER_UNITS: Record<DefenderUnitType, DefenderUnitTemplate> = {
-  HVY: { type: 'HVY', label: 'Heavy Tank',   atk: 4, def: 3, move: 2, range: 2, slots: 3, infPoints: 0 },
-  MSL: { type: 'MSL', label: 'Missile Tank', atk: 6, def: 2, move: 3, range: 4, slots: 2, infPoints: 0 },
-  GEV: { type: 'GEV', label: 'GEV',          atk: 3, def: 2, move: 4, range: 2, slots: 2, infPoints: 0, secondaryMove: 2 },
-  HOW: { type: 'HOW', label: 'Howitzer',     atk: 6, def: 1, move: 1, range: 8, slots: 2, infPoints: 0, indirect: true },
-  INF: { type: 'INF', label: 'Infantry',     atk: 1, def: 1, move: 1, range: 1, slots: 0, infPoints: 2 },
-  CP:  { type: 'CP',  label: 'Command Post', atk: 0, def: 3, move: 0, range: 0, slots: 0, infPoints: 0 },
+  HVY: { type: 'HVY', label: 'Heavy Tank',   atk: 4, def: 3, move: 3, range: 2, slots: 1, infPoints: 0, canCrossRidge: false },
+  MSL: { type: 'MSL', label: 'Missile Tank', atk: 6, def: 2, move: 2, range: 4, slots: 1, infPoints: 0, canCrossRidge: false },
+  GEV: { type: 'GEV', label: 'GEV',          atk: 3, def: 2, move: 4, range: 2, slots: 1, infPoints: 0, secondaryMove: 3, canCrossRidge: false },
+  HOW: { type: 'HOW', label: 'Howitzer',     atk: 6, def: 1, move: 0, range: 8, slots: 1, infPoints: 0, indirect: true, canCrossRidge: false },
+  INF: { type: 'INF', label: 'Infantry',     atk: 1, def: 1, move: 2, range: 1, slots: 0, infPoints: 1, canCrossRidge: true  },
+  CP:  { type: 'CP',  label: 'Command Post', atk: 0, def: 3, move: 0, range: 0, slots: 0, infPoints: 0, canCrossRidge: false },
 };
 
 // ---------------------------------------------------------------------------

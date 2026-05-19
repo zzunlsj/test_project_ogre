@@ -91,10 +91,10 @@ export class BriefingScene extends Phaser.Scene {
       '   ATK STACK: 1SQ=ATK1  2SQ=ATK2  3SQ=ATK3\n' +
       '\n' +
       'DEPLOYMENT ZONES:\n' +
-      '   NORTHERN (R01-R07) — CP ONLY\n' +
-      '   CENTRAL  (R08-R15) — ATK SUM ≤ 20\n' +
-      '   SOUTHERN (R16-R21) — ALL UNITS\n' +
-      '   CRATERS: NO UNIT PLACEMENT\n' +
+      '   NORTHERN (R01-R07) — CP + DEFENDERS\n' +
+      '   CENTRAL  (R08-R15) — DEFENDERS, ATK SUM ≤ 20\n' +
+      '   SOUTHERN (R16-R21) — NO DEPLOY (OGRE CORRIDOR)\n' +
+      '   CRATERS: NO ENTRY (BLOCK MOVEMENT)\n' +
       '\n' +
       'OBJECTIVE:\n' +
       '   OGRE: ADVANCE NORTH AND DESTROY THE CP.\n' +

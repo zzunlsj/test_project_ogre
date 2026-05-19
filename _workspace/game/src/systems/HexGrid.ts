@@ -118,15 +118,18 @@ export class HexGrid {
     return -1;
   }
 
-  /** BFS reachable. Crater costs +1 to enter. blockers occupy a hex (cannot stop there).
+  /** BFS reachable. Crater hexes cannot be entered. Blockers occupy a hex (cannot stop there).
    *  passThroughSet: hexes that may be traversed but cannot be stopped on (friendly units).
+   *  ridgeMap + canCrossRidge: if canCrossRidge=false, units cannot move across a ridge edge.
    */
   reachable(
     from: HexCoord,
     movePoints: number,
     craterSet: Set<string> = new Set(),
     blockerSet: Set<string> = new Set(),
-    passThroughSet: Set<string> = new Set()
+    passThroughSet: Set<string> = new Set(),
+    ridgeMap: Map<string, Set<number>> = new Map(),
+    canCrossRidge: boolean = true
   ): HexCoord[] {
     const key = (c: HexCoord) => `${c.col},${c.row}`;
     const dist = new Map<string, number>();
@@ -140,8 +143,21 @@ export class HexGrid {
       for (const nb of this.neighbors(cur.coord)) {
         const k = key(nb);
         if (blockerSet.has(k)) continue;
-        const enterCost = craterSet.has(k) ? 2 : 1;
-        const total = cur.cost + enterCost;
+        // Crater: cannot enter at all
+        if (craterSet.has(k)) continue;
+        // Ridge: units without canCrossRidge cannot cross a ridge edge
+        if (!canCrossRidge && ridgeMap.size > 0) {
+          const edgeIdx = this.edgeBetween(cur.coord, nb);
+          if (edgeIdx !== -1) {
+            const srcK = key(cur.coord);
+            const srcRidges = ridgeMap.get(srcK);
+            if (srcRidges && srcRidges.has(edgeIdx as number)) continue;
+            const revEdge = ((edgeIdx as number) + 3) % 6;
+            const tgtRidges = ridgeMap.get(k);
+            if (tgtRidges && tgtRidges.has(revEdge)) continue;
+          }
+        }
+        const total = cur.cost + 1;  // uniform cost; craters are blocked entirely
         if (total > movePoints) continue;
         if (dist.has(k) && dist.get(k)! <= total) continue;
         dist.set(k, total);
@@ -167,7 +183,9 @@ export class HexGrid {
     movePoints: number,
     craterSet: Set<string> = new Set(),
     blockerSet: Set<string> = new Set(),
-    passThroughSet: Set<string> = new Set()
+    passThroughSet: Set<string> = new Set(),
+    ridgeMap: Map<string, Set<number>> = new Map(),
+    canCrossRidge: boolean = true
   ): HexCoord[] | null {
     const key = (c: HexCoord) => `${c.col},${c.row}`;
     const targetK = key(to);
@@ -183,8 +201,21 @@ export class HexGrid {
       for (const nb of this.neighbors(cur.coord)) {
         const k = key(nb);
         if (blockerSet.has(k)) continue;
-        const enterCost = craterSet.has(k) ? 2 : 1;
-        const total = cur.cost + enterCost;
+        // Crater: cannot enter at all
+        if (craterSet.has(k)) continue;
+        // Ridge edge restriction
+        if (!canCrossRidge && ridgeMap.size > 0) {
+          const edgeIdx = this.edgeBetween(cur.coord, nb);
+          if (edgeIdx !== -1) {
+            const srcK = key(cur.coord);
+            const srcRidges = ridgeMap.get(srcK);
+            if (srcRidges && srcRidges.has(edgeIdx as number)) continue;
+            const revEdge = ((edgeIdx as number) + 3) % 6;
+            const tgtRidges = ridgeMap.get(k);
+            if (tgtRidges && tgtRidges.has(revEdge)) continue;
+          }
+        }
+        const total = cur.cost + 1;
         if (total > movePoints) continue;
         if (dist.has(k) && dist.get(k)! <= total) continue;
         // passThroughSet is allowed unless this is the final target

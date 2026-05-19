@@ -92,58 +92,50 @@ export class AIController {
     let slots = budget.armorSlots;
     let pts   = budget.infantryPoints;
 
+    // 배치 정책: 방어군은 Northern + Central(row ≤ 14)만 사용. Southern은 OGRE 진입 회랑.
+    //  - CP : Northern (row 2)
+    //  - HOW: Central 후방 (이동 불가이므로 가장 북쪽)
+    //  - MSL: Central
+    //  - GEV: Central 양익
+    //  - HVY: Central 중앙선
+    //  - INF: Central 전방 스크리닝
+
     // ── Layer 0: CP (Northern 중앙, col 7, row 2) ──────────────────
     place('CP', 7, 2);
 
-    // ── Layer 1: HOW ×2 — Southern 후방 포병 (row 15) ─────────────
-    if (slots > 0 && place('HOW', 3,  15)) slots--;
-    if (slots > 0 && place('HOW', 11, 15)) slots--;
+    // ── Layer 1: HOW ×2 — Central 후방 (row 12, 이동 불가) ─────────
+    if (slots > 0 && place('HOW', 3,  12)) slots--;
+    if (slots > 0 && place('HOW', 11, 12)) slots--;
 
-    // ── Layer 2: MSL ×2 — Southern 미사일 (row 16) ─────────────────
-    if (slots > 0 && place('MSL', 5,  16)) slots--;
-    if (slots > 0 && place('MSL', 9,  16)) slots--;
+    // ── Layer 2: MSL ×2 — Central (row 12) ─────────────────────────
+    if (slots > 0 && place('MSL', 5,  12)) slots--;
+    if (slots > 0 && place('MSL', 9,  12)) slots--;
 
-    // ── Layer 3: GEV ×2 — Central 양익 기동 (row 10) ───────────────
-    if (slots > 0 && place('GEV', 3,  10)) slots--;
-    if (slots > 0 && place('GEV', 11, 10)) slots--;
+    // ── Layer 3: GEV ×2 — Central 양익 (row 9) ─────────────────────
+    if (slots > 0 && place('GEV', 3,  9))  slots--;
+    if (slots > 0 && place('GEV', 11, 9))  slots--;
 
-    // ── Layer 4: HVY ×2 — Central 중앙 중전차 (row 11) ─────────────
-    if (slots > 0 && place('HVY', 5,  11)) slots--;
-    if (slots > 0 && place('HVY', 9,  11)) slots--;
+    // ── Layer 4: HVY ×2 — Central 중앙 (row 10) ────────────────────
+    if (slots > 0 && place('HVY', 5,  10)) slots--;
+    if (slots > 0 && place('HVY', 9,  10)) slots--;
 
-    // ── Layer 5: 보강 — Central/Southern (row 12-13) ───────────────
-    // MSL 1기 중앙 (Central ATK 여유 있으면 Central, 없으면 Southern)
-    if (slots > 0) {
-      if (centralAtk() + 6 <= CENTRAL_ATK_LIMIT) { if (place('MSL', 7, 12)) slots--; }
-      else                                          { if (place('MSL', 7, 17)) slots--; }
-    }
-    if (slots > 0) {
-      if (centralAtk() + 3 <= CENTRAL_ATK_LIMIT) { if (place('GEV', 7, 11)) slots--; }
-      else                                          { if (place('GEV', 7, 16)) slots--; }
-    }
-
-    // ── Layer 6: HVY ×2 — Southern 전선 중전차 (row 17) ────────────
-    if (slots > 0 && place('HVY', 5,  17)) slots--;
-    if (slots > 0 && place('HVY', 9,  17)) slots--;
-
-    // ── 잔여 슬롯: 대칭 후보 목록으로 채우기 ──────────────────────
+    // ── 잔여 슬롯: Central 내 대칭 후보로 채우기 (Northern/Southern 금지) ──
     const fallback: [DefenderUnitType, number, number][] = [
-      ['HVY', 7, 13], ['HVY', 3, 13], ['HVY', 11, 13],
-      ['MSL', 4, 14], ['MSL', 10, 14], ['GEV', 2, 12], ['GEV', 12, 12],
-      ['HOW', 6, 14], ['HOW', 8, 14],
+      ['HVY', 7, 10], ['MSL', 7, 12], ['GEV', 2, 11], ['GEV', 12, 11],
+      ['HVY', 3, 13], ['HVY', 11, 13], ['MSL', 6, 13], ['MSL', 8, 13],
     ];
     for (const [t, c, r] of fallback) {
       if (slots <= 0) break;
       if (place(t, c, r)) slots--;
     }
 
-    // ── 보병 최전선 (Southern rows 16-19, 대칭 배치) ────────────────
-    // 전략: 2스쿼드씩 대칭 배치 → ATK 2/hex, 최전방 스크리닝
+    // ── 보병 — Central 전방 스크리닝 (rows 11-14, 대칭 배치) ───────
+    // 1pt/squad 기준 (변경된 비용)
     const infGrid: [number, number, 1|2|3][] = [
-      [2, 18, 2], [4, 18, 2], [6, 18, 2], [8, 18, 2], [10, 18, 2], [12, 18, 2],
-      [3, 17, 1], [11, 17, 1],
-      [5, 19, 1], [7, 19, 1], [9, 19, 1],
-      [2, 16, 1], [12, 16, 1],
+      [3, 14, 2], [5, 14, 2], [7, 14, 2], [9, 14, 2], [11, 14, 2],
+      [4, 13, 1], [10, 13, 1],
+      [6, 11, 1], [8, 11, 1],
+      [2, 14, 1], [12, 14, 1],
     ];
     for (const [c, r, sq] of infGrid) {
       if (pts < sq) continue;
@@ -161,19 +153,24 @@ export class AIController {
     units: DefenderUnit[],
     ogre: OgreStats,
     craterSet: Set<string> = new Set(),
-    blockerSet: Set<string> = new Set()
+    blockerSet: Set<string> = new Set(),
+    ridgeMap: Map<string, Set<number>> = new Map()
   ): Map<string, HexCoord> {
     const plans = new Map<string, HexCoord>();
     const ogrePos: HexCoord = { col: ogre.col, row: ogre.row };
 
     for (const u of units) {
       if (u.state !== 'ok' || u.type === 'CP' || u.type === 'HOW' || u.move === 0) continue;
+      const canCross = u.type === 'INF';
 
       const reach = this.hexGrid.reachable(
         { col: u.col, row: u.row },
         u.move,
         craterSet,
-        blockerSet
+        blockerSet,
+        new Set(),
+        ridgeMap,
+        canCross
       );
       const candidates = [{ col: u.col, row: u.row }, ...reach];
 
