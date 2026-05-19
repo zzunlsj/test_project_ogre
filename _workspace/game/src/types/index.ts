@@ -263,6 +263,10 @@ export const EVENTS = {
   UI_ADD_WEAPON:          'ui:add-weapon',
   UI_ADD_ATTACKER:        'ui:add-attacker',
   UI_END_MOVE:            'ui:end-move',
+
+  // Hex / unit selection (2-step selection system)
+  OGRE_SELECTED:          'unit:ogre-selected',
+  UNIT_DESELECT:          'unit:deselect',
 } as const;
 
 export type EventKey = typeof EVENTS[keyof typeof EVENTS];

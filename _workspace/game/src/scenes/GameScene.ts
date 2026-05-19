@@ -116,6 +116,7 @@ export class GameScene extends Phaser.Scene {
   private moveRange: HexCoord[] = [];
   private attackRange: HexCoord[] = [];
   private hoverHex: HexCoord | null = null;
+  private activeHex: HexCoord | null = null;   // currently focused/clicked hex (2-step selection)
   private pendingCombat: CombatDeclaration | null = null;
 
   // Game config
@@ -606,10 +607,68 @@ export class GameScene extends Phaser.Scene {
 
   private drawHighlights(): void {
     this.gHighlight.clear();
+
+    // ① 이동 가능 범위 (초록 반투명 fill + 외곽선)
+    for (const h of this.moveRange) {
+      if (!this.isValidHex(h.col, h.row)) continue;
+      const [cx, cy] = this.hc(h.col, h.row);
+      const pts = this.hexGrid.hexPoints(cx, cy, this.R);
+      this.gHighlight.fillStyle(0x33FF33, 0.18);
+      this.gHighlight.beginPath();
+      this.gHighlight.moveTo(pts[0].x, pts[0].y);
+      for (let i = 1; i < 6; i++) this.gHighlight.lineTo(pts[i].x, pts[i].y);
+      this.gHighlight.closePath();
+      this.gHighlight.fillPath();
+      this.gHighlight.lineStyle(1, 0x33FF33, 0.6);
+      this.gHighlight.strokePoints(pts, true);
+    }
+
+    // ② 공격 범위 (amber 반투명)
+    for (const h of this.attackRange) {
+      if (!this.isValidHex(h.col, h.row)) continue;
+      const [cx, cy] = this.hc(h.col, h.row);
+      const pts = this.hexGrid.hexPoints(cx, cy, this.R);
+      this.gHighlight.fillStyle(0xFFAA00, 0.15);
+      this.gHighlight.beginPath();
+      this.gHighlight.moveTo(pts[0].x, pts[0].y);
+      for (let i = 1; i < 6; i++) this.gHighlight.lineTo(pts[i].x, pts[i].y);
+      this.gHighlight.closePath();
+      this.gHighlight.fillPath();
+    }
+
+    // ③ 선택된 유닛 헥사 (밝은 초록 두꺼운 테두리)
+    if (this.selectedUnitId) {
+      let selHex: HexCoord | null = null;
+      const o = this.ogreCtrl.getStats();
+      if (this.selectedUnitId === o.id) {
+        selHex = { col: o.col, row: o.row };
+      } else {
+        const u = this.defenders.getById(this.selectedUnitId);
+        if (u) selHex = { col: u.col, row: u.row };
+      }
+      if (selHex && this.isValidHex(selHex.col, selHex.row)) {
+        const [cx, cy] = this.hc(selHex.col, selHex.row);
+        const pts = this.hexGrid.hexPoints(cx, cy, this.R);
+        this.gHighlight.lineStyle(2.5, 0x33FF33, 1);
+        this.gHighlight.strokePoints(pts, true);
+      }
+    }
+
+    // ④ 활성 헥사 (activeHex) — 클릭으로 포커싱된 헥사 (흰빛 글로우 + 밝은 내부 테두리)
+    if (this.activeHex && this.isValidHex(this.activeHex.col, this.activeHex.row)) {
+      const [cx, cy] = this.hc(this.activeHex.col, this.activeHex.row);
+      const pts = this.hexGrid.hexPoints(cx, cy, this.R);
+      this.gHighlight.lineStyle(3, 0xFFFFFF, 0.35);
+      this.gHighlight.strokePoints(pts, true);
+      this.gHighlight.lineStyle(1.5, 0xCCFFCC, 0.9);
+      this.gHighlight.strokePoints(pts, true);
+    }
+
+    // ⑤ hover 헥사 (마우스 위치 추적)
     if (this.hoverHex && this.isValidHex(this.hoverHex.col, this.hoverHex.row)) {
       const [cx, cy] = this.hc(this.hoverHex.col, this.hoverHex.row);
       const pts = this.hexGrid.hexPoints(cx, cy, this.R);
-      this.gHighlight.lineStyle(1, CRT.GREEN_DIM, 0.8);
+      this.gHighlight.lineStyle(1, CRT.GREEN_DIM, 0.5);
       this.gHighlight.strokePoints(pts, true);
     }
   }
@@ -899,6 +958,22 @@ export class GameScene extends Phaser.Scene {
     const hex = this.hexGrid.pixelToHex(wx, wy, this.R, this.OX + this.panX, this.OY + this.panY);
     if (!this.isValidHex(hex.col, hex.row)) return;
 
+    // 1. activeHex 갱신 (어떤 헥사를 클릭했든 항상 기록)
+    this.activeHex = hex;
+
+    // 2. 클릭한 헥사의 유닛 정보를 우측/좌측 패널에 알림
+    const o = this.ogreCtrl.getStats();
+    const isOgreHex = hex.col === o.col && hex.row === o.row;
+    const defenderHere = this.defenders.getAt(hex.col, hex.row);
+    if (isOgreHex) {
+      this.bus.emit(EVENTS.OGRE_SELECTED, { ogre: o });
+    } else if (defenderHere) {
+      this.bus.emit(EVENTS.UI_SELECT_UNIT, { unitId: defenderHere.id });
+    } else {
+      this.bus.emit(EVENTS.UNIT_DESELECT, {});
+    }
+
+    // 3. 현재 페이즈/제어권에 맞게 이동/공격 처리
     const phase = this.turnMgr.getPhase();
     if (phase === 'ogre-move' && this.canPlayerControl('ogre')) {
       this.handleOgreMoveClick(hex);
@@ -910,6 +985,81 @@ export class GameScene extends Phaser.Scene {
     } else if (phase === 'defender-attack' && this.canPlayerControl('defender')) {
       this.handleDefenderAttackClick(hex);
     }
+
+    this.drawHighlights();
+  }
+
+  // -------------------------------------------------------------------------
+  // Movement range computation (centralized rules)
+  //  - 크레이터: 진입/통과 불가 (HexGrid.reachable에서 처리)
+  //  - 능선: HVY/MSL/GEV/HOW = 통과 불가 / INF & OGRE = 통과 가능
+  //  - 아군 비보병: 블로커
+  //  - 아군 INF: 이동 유닛이 INF면 1~2스쿼드 셀은 통과+정지 가능, 3스쿼드면 블로커
+  //  - 적군: 블로커 (RAM은 OGRE 전용 별도 처리)
+  // -------------------------------------------------------------------------
+  private computeMoveRange(u: DefenderUnit, movePoints: number): HexCoord[] {
+    const blockerSet = new Set<string>();
+
+    // OGRE는 항상 블로커
+    const o = this.ogreCtrl.getStats();
+    blockerSet.add(`${o.col},${o.row}`);
+
+    // 다른 방어군 유닛
+    for (const other of this.defenders.getAlive()) {
+      if (other.id === u.id) continue;
+      const k = `${other.col},${other.row}`;
+      if (u.type === 'INF' && other.type === 'INF') {
+        const squads = other.squads ?? 1;
+        if (squads >= 3) {
+          blockerSet.add(k);  // 3스쿼드 가득 찬 INF → 정지/통과 불가
+        }
+        // 1~2스쿼드 INF는 스태킹 허용 (블로커에 넣지 않음)
+      } else {
+        blockerSet.add(k);
+      }
+    }
+
+    const canCrossRidge = u.type === 'INF';
+    return this.hexGrid.reachable(
+      { col: u.col, row: u.row },
+      movePoints,
+      this.craterSet,
+      blockerSet,
+      new Set(),
+      this.ridgeMap,
+      canCrossRidge,
+    );
+  }
+
+  /** OGRE 이동 범위: 일반 이동 + RAM 가능 인접 방어군 헥스 포함 */
+  private computeOgreMoveRange(movePoints: number): HexCoord[] {
+    const o = this.ogreCtrl.getStats();
+    const blockerSet = new Set<string>();
+    for (const u of this.defenders.getAlive()) {
+      blockerSet.add(`${u.col},${u.row}`);
+    }
+
+    const normalRange = this.hexGrid.reachable(
+      { col: o.col, row: o.row },
+      movePoints,
+      this.craterSet,
+      blockerSet,
+      new Set(),
+      this.ridgeMap,
+      true,
+    );
+
+    // RAM 가능 대상: 정상 이동 범위 내(또는 OGRE 자신)에 인접한 방어군 헥스
+    const reachKeys = new Set(normalRange.map(h => `${h.col},${h.row}`));
+    reachKeys.add(`${o.col},${o.row}`);
+    const ramTargets: HexCoord[] = [];
+    for (const u of this.defenders.getAlive()) {
+      if (u.state === 'dead') continue;
+      const adj = this.hexGrid.neighbors({ col: u.col, row: u.row });
+      const ramOk = adj.some(a => reachKeys.has(`${a.col},${a.row}`));
+      if (ramOk) ramTargets.push({ col: u.col, row: u.row });
+    }
+    return [...normalRange, ...ramTargets];
   }
 
   private canPlayerControl(side: Side): boolean {
@@ -930,16 +1080,7 @@ export class GameScene extends Phaser.Scene {
     if (this.selectedUnitId !== o.id) {
       if (hex.col === o.col && hex.row === o.row) {
         this.selectedUnitId = o.id;
-        // OGRE: crater 진입 불가, 능선은 자유 통과
-        this.moveRange = this.hexGrid.reachable(
-          { col: o.col, row: o.row },
-          remaining,
-          this.craterSet,
-          this.defenderBlockers(),
-          new Set(),
-          this.ridgeMap,
-          true,
-        );
+        this.moveRange = this.computeOgreMoveRange(remaining);
         this.scheduleDraw();
       }
       return;
@@ -994,15 +1135,7 @@ export class GameScene extends Phaser.Scene {
       // Re-select OGRE so player can continue moving
       const o2 = this.ogreCtrl.getStats();
       this.selectedUnitId = o2.id;
-      this.moveRange = this.hexGrid.reachable(
-        { col: o2.col, row: o2.row },
-        o.movement - this.ogreMoveUsed,
-        this.craterSet,
-        this.defenderBlockers(),
-        new Set(),
-        this.ridgeMap,
-        true,
-      );
+      this.moveRange = this.computeOgreMoveRange(o.movement - this.ogreMoveUsed);
     }
     this.scheduleDraw();
   }
@@ -1220,26 +1353,7 @@ export class GameScene extends Phaser.Scene {
       const mp = isGevPhase
         ? (tpl?.secondaryMove ?? unitHere.secondaryMove ?? Math.floor(unitHere.move / 2))
         : unitHere.move;
-      // Friendly units → pass-through (traverse but cannot stop)
-      // INF destination of same hex would be allowed via direct stacking check separately.
-      const friendlyHexes = new Set<string>();
-      for (const u of this.defenders.getAlive()) {
-        if (u.id === unitHere.id) continue;
-        friendlyHexes.add(`${u.col},${u.row}`);
-      }
-      const ogreHex = new Set<string>();
-      const o = this.ogreCtrl.getStats();
-      ogreHex.add(`${o.col},${o.row}`);
-      const unitCanCrossRidge = unitHere.type === 'INF';
-      this.moveRange = this.hexGrid.reachable(
-        { col: unitHere.col, row: unitHere.row },
-        mp,
-        this.craterSet,
-        ogreHex,            // OGRE blocks
-        friendlyHexes,      // friendlies are pass-through (cannot stop)
-        this.ridgeMap,
-        unitCanCrossRidge,
-      );
+      this.moveRange = this.computeMoveRange(unitHere, mp);
       this.scheduleDraw();
     }
   }
@@ -1636,6 +1750,9 @@ export class GameScene extends Phaser.Scene {
     this.selectedUnitId = null;
     this.moveRange = [];
     this.attackRange = [];
+    this.activeHex = null;
+    this.mode = 'idle';
+    this.drawHighlights();
   }
 
   private getSelectedCoord(): HexCoord | null {

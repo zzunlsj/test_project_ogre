@@ -522,7 +522,7 @@ export class UIScene extends Phaser.Scene {
 
     if (this.textures.exists('ogre_mk3_crt')) {
       const portrait = this.add.image(r.x + r.w - 6, hdrY + 6, 'ogre_mk3_crt')
-        .setOrigin(1, 0.5).setDisplaySize(40, 24).setTint(HEX.G).setAlpha(0.9);
+        .setOrigin(1, 0.5).setDisplaySize(28, 28).setTint(HEX.G).setAlpha(0.9);
       this.rightPanel.add(portrait);
     } else {
       const pTxt = this.add.text(r.x + r.w - 6, hdrY, '▓ OGRE', textStyle(11, COL.G)).setOrigin(1, 0);
@@ -1195,6 +1195,19 @@ export class UIScene extends Phaser.Scene {
       }
     });
 
+    bus.on(EVENTS.OGRE_SELECTED, (_data: { ogre?: any }) => {
+      // OGRE hex selection → flash right panel header (OGRE info already lives there)
+      this.highlightOgrePanel();
+    });
+
+    bus.on(EVENTS.UNIT_DESELECT, () => {
+      // Empty hex selection → close detail panel
+      this.selectedInfoContainer?.destroy();
+      this.selectedInfoContainer = undefined;
+      this.selectedUnitData = null;
+      this.selectedIsOgre = false;
+    });
+
     bus.on(EVENTS.VICTORY, (data: { winner: 'ogre' | 'defender'; reason: string }) => {
       this.scene.start('gameover', data);
     });
@@ -1211,6 +1224,29 @@ export class UIScene extends Phaser.Scene {
     }) => {
       this.showAttackPrompt('defender', data);
     });
+  }
+
+  // ==========================================================================
+  // OGRE PANEL HIGHLIGHT — brief amber flash over right-panel header
+  // ==========================================================================
+  private highlightOgrePanel(): void {
+    const r = this.layout.rightPanel;
+    if (!r || r.w === 0) return;
+    const flash = this.add.graphics().setDepth(200);
+    flash.fillStyle(HEX.AMBER, 0.15);
+    flash.fillRect(r.x, r.y, r.w, 40);
+    this.tweens.add({
+      targets: flash,
+      alpha: 0,
+      duration: 800,
+      onComplete: () => flash.destroy(),
+    });
+
+    // Close left detail panel — OGRE info shown in right panel instead
+    this.selectedInfoContainer?.destroy();
+    this.selectedInfoContainer = undefined;
+    this.selectedUnitData = null;
+    this.selectedIsOgre = true;
   }
 
   // ==========================================================================
@@ -1337,7 +1373,7 @@ export class UIScene extends Phaser.Scene {
       // Target: OGRE — weapon target selection
       if (this.textures.exists('ogre_mk3_crt')) {
         const img = this.add.image(px + W - 60, py + 88, 'ogre_mk3_crt')
-          .setDisplaySize(56, 36).setTint(HEX.RED).setAlpha(0.9);
+          .setDisplaySize(48, 48).setTint(HEX.RED).setAlpha(0.9);
         c.add(img);
       }
       c.add(this.add.text(px + W / 2 + 12, py + 56, 'OGRE Mk.III', textStyle(10, COL.G)).setOrigin(0, 0));
@@ -1488,104 +1524,100 @@ export class UIScene extends Phaser.Scene {
     const PANEL_H = 180;
     const y0 = r.y + r.h - PANEL_H;
 
-    const c = this.add.container(0, 0);
+    const c = this.add.container(0, 0).setDepth(200);
 
-    // top separator
-    const sepG = this.add.graphics();
-    sepG.lineStyle(1, HEX.BDR, 1);
-    sepG.lineBetween(r.x + 8, y0, r.x + r.w - 8, y0);
-    c.add(sepG);
-
-    // background tint to visually separate from list above
-    const bgG = this.add.graphics();
-    bgG.fillStyle(0x0A140A, 0.85);
-    bgG.fillRect(r.x + 1, y0 + 1, r.w - 2, PANEL_H - 2);
-    c.add(bgG);
+    // background + top separator
+    const bg = this.add.graphics();
+    bg.fillStyle(0x080F08, 0.95);
+    bg.fillRect(r.x + 1, y0 + 1, r.w - 2, PANEL_H - 2);
+    bg.lineStyle(1, HEX.BDR, 1);
+    bg.lineBetween(r.x + 4, y0, r.x + r.w - 4, y0);
+    c.add(bg);
 
     let y = y0 + 6;
 
-    // Section header
-    const hdr = this.add.text(r.x + 10, y, 'SELECTED UNIT', textStyle(9, COL.G4)).setOrigin(0, 0);
-    hdr.setLetterSpacing(2);
+    // Header
+    const hdr = this.add.text(r.x + 8, y, '── SELECTED ──', textStyle(9, COL.G4)).setOrigin(0, 0);
+    hdr.setLetterSpacing(1);
     c.add(hdr);
     y += 14;
 
-    // Determine state-derived colors
+    // State colors
     const stateCol = u.state === 'dead' ? '#555555' : u.state === 'disabled' ? COL.AMBER : COL.G;
     const stateHex = u.state === 'dead' ? 0x555555 : u.state === 'disabled' ? HEX.AMBER : HEX.G;
 
-    // Icon box (36x36)
-    const ix = r.x + 10;
+    // Icon box (32×32 — square, no distortion)
+    const ICON_BOX = 32;
+    const ix = r.x + 8;
     const iy = y;
     const iconG = this.add.graphics();
-    iconG.lineStyle(1, stateHex, u.state === 'dead' ? 0.4 : 1);
-    iconG.strokeRect(ix, iy, 36, 36);
+    iconG.lineStyle(1, stateHex, u.state === 'dead' ? 0.3 : 1);
+    iconG.strokeRect(ix, iy, ICON_BOX, ICON_BOX);
     c.add(iconG);
 
     const svgK = `${unitSvgKey(u)}_crt`;
     if (this.textures.exists(svgK)) {
-      const img = this.add.image(ix + 18, iy + 18, svgK).setDisplaySize(32, 32).setTint(stateHex);
+      // Square aspect — both dimensions equal
+      const iconSide = 28;
+      const img = this.add.image(ix + ICON_BOX / 2, iy + ICON_BOX / 2, svgK);
+      img.setDisplaySize(iconSide, iconSide);
+      img.setTint(stateHex);
       if (u.state === 'dead') img.setAlpha(0.4);
       c.add(img);
     } else {
       const tok = UNIT_ICON_TOKEN[u.type] ?? u.type.slice(0, 3);
-      c.add(this.add.text(ix + 18, iy + 18, tok, textStyle(10, stateCol)).setOrigin(0.5));
+      c.add(this.add.text(ix + ICON_BOX / 2, iy + ICON_BOX / 2, tok, textStyle(9, stateCol)).setOrigin(0.5));
     }
 
-    // Name + position + state
-    const unitNames: Record<DefenderUnitType, string> = {
+    // Name + squad suffix
+    const nameMap: Record<DefenderUnitType, string> = {
       HVY: 'Heavy Tank',
       MSL: 'Missile Tank',
       GEV: 'GEV',
       HOW: 'Howitzer',
       INF: 'Infantry',
-      CP:  'Command Post',
+      CP:  'Cmd Post',
     };
-    const tCode = `(${u.type})`;
-    const squadStr = u.type === 'INF' && u.squads ? ` x${u.squads}sq` : '';
-    const nameLine = `${unitNames[u.type] ?? u.type} ${tCode}${squadStr}`;
-    const nameTxt = this.add.text(ix + 44, iy, nameLine, textStyle(10, stateCol)).setOrigin(0, 0);
+    const squadSuffix = (u.type === 'INF' && u.squads) ? ` ×${u.squads}sq` : '';
+    const nameTxt = this.add.text(ix + 38, iy + 2, (nameMap[u.type] ?? u.type) + squadSuffix, textStyle(10, stateCol)).setOrigin(0, 0);
     nameTxt.setLetterSpacing(1);
     if (u.state === 'dead') nameTxt.setAlpha(0.5);
     c.add(nameTxt);
 
-    const posTxt = this.add.text(
-      ix + 44, iy + 14,
-      `POS: (${String(u.col + 1).padStart(2, '0')},${String(u.row + 1).padStart(2, '0')})`,
+    c.add(this.add.text(
+      ix + 38, iy + 14,
+      `(${String(u.col + 1).padStart(2, '0')},${String(u.row + 1).padStart(2, '0')})`,
       textStyle(9, COL.G4),
-    ).setOrigin(0, 0);
-    c.add(posTxt);
+    ).setOrigin(0, 0));
 
-    const stateLabel = u.state === 'dead' ? 'DESTROYED' : u.state === 'disabled' ? 'DISABLED' : 'OK';
-    const stateTxt = this.add.text(ix + 44, iy + 26, `STATE: ${stateLabel}`, textStyle(9, stateCol)).setOrigin(0, 0);
-    c.add(stateTxt);
+    const stateLabel = u.state === 'dead' ? 'DESTROYED' : u.state === 'disabled' ? 'DISABLED' : 'ACTIVE';
+    c.add(this.add.text(ix + 38, iy + 24, stateLabel, textStyle(9, stateCol)).setOrigin(0, 0));
 
-    y += 44;
+    y += 38;
 
-    // Mid divider
-    const midDiv = this.add.graphics();
-    midDiv.lineStyle(1, HEX.BDR2, 1);
-    midDiv.lineBetween(r.x + 10, y, r.x + r.w - 10, y);
-    c.add(midDiv);
-    y += 4;
+    // Stat line 1: ATK / DEF / RNG
+    c.add(this.add.text(r.x + 8, y, `ATK ${u.atk}   DEF ${u.def}   RNG ${u.range}`, textStyle(9, COL.G3)).setOrigin(0, 0));
+    y += 13;
 
-    // Stats row 1: ATK / DEF
-    const stat1 = this.add.text(r.x + 10, y, `ATK:${u.atk}   DEF:${u.def}`, textStyle(9, COL.G3)).setOrigin(0, 0);
-    c.add(stat1);
-    y += 12;
+    // Stat line 2: MOV + RIDGE
+    const movStr = (u.type === 'HOW' || u.type === 'CP') ? 'MOV —' : `MOV ${u.move}${u.secondaryMove ? `+${u.secondaryMove}` : ''}`;
+    const ridgeStr = u.type === 'INF' ? '  RIDGE ✓' : '  RIDGE ✗';
+    c.add(this.add.text(r.x + 8, y, movStr + ridgeStr, textStyle(9, COL.G3)).setOrigin(0, 0));
+    y += 13;
 
-    // Stats row 2: MOV (with secondary if present) / RNG
-    const moveStr = u.secondaryMove ? `${u.move}+${u.secondaryMove}` : `${u.move}`;
-    const stat2 = this.add.text(r.x + 10, y, `MOV:${moveStr}   RNG:${u.range}`, textStyle(9, COL.G3)).setOrigin(0, 0);
-    c.add(stat2);
-    y += 12;
+    // GEV post-move
+    if (u.type === 'GEV') {
+      const pm = u.secondaryMove ?? 3;
+      c.add(this.add.text(r.x + 8, y, `POST-MOVE +${pm}`, textStyle(8, COL.G4)).setOrigin(0, 0));
+      y += 12;
+    }
 
-    // Ridge crossing capability (INF only)
-    const canRidge = u.type === 'INF';
-    const ridgeStr = canRidge ? 'RIDGE: CAN CROSS' : 'RIDGE: BLOCKED';
-    const ridgeCol = canRidge ? COL.G3 : COL.G4;
-    const ridgeTxt = this.add.text(r.x + 10, y, ridgeStr, textStyle(9, ridgeCol)).setOrigin(0, 0);
-    c.add(ridgeTxt);
+    // INF squad info
+    if (u.type === 'INF') {
+      const sq = u.squads ?? 1;
+      c.add(this.add.text(r.x + 8, y, `SQUADS: ${sq}/3  ATK TOTAL: ${u.atk}`, textStyle(8, COL.G4)).setOrigin(0, 0));
+      y += 12;
+    }
 
     this.leftPanel.add(c);
     this.selectedInfoContainer = c;
