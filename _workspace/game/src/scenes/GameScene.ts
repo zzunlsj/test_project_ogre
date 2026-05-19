@@ -998,24 +998,28 @@ export class GameScene extends Phaser.Scene {
   //  - 적군: 블로커 (RAM은 OGRE 전용 별도 처리)
   // -------------------------------------------------------------------------
   private computeMoveRange(u: DefenderUnit, movePoints: number): HexCoord[] {
-    const blockerSet = new Set<string>();
+    // blockerSet: 아예 진입/통과 불가 (적군, 크레이터는 BFS 내부에서 처리)
+    const blockerSet     = new Set<string>();
+    // passThroughSet: 통과는 가능하지만 멈출 수 없음 (아군 유닛)
+    const passThroughSet = new Set<string>();
 
-    // OGRE는 항상 블로커
+    // OGRE는 적군 → 완전 블로커 (진입 불가)
     const o = this.ogreCtrl.getStats();
     blockerSet.add(`${o.col},${o.row}`);
 
-    // 다른 방어군 유닛
+    // 아군 방어군: 지나갈 수 있지만 멈출 수 없음 → passThroughSet
     for (const other of this.defenders.getAlive()) {
       if (other.id === u.id) continue;
       const k = `${other.col},${other.row}`;
       if (u.type === 'INF' && other.type === 'INF') {
-        const squads = other.squads ?? 1;
-        if (squads >= 3) {
-          blockerSet.add(k);  // 3스쿼드 가득 찬 INF → 정지/통과 불가
+        if ((other.squads ?? 1) >= 3) {
+          // 만석 INF: 통과도 멈추기도 불가 → blockerSet
+          blockerSet.add(k);
         }
-        // 1~2스쿼드 INF는 스태킹 허용 (블로커에 넣지 않음)
+        // 공간 있는 INF: 스태킹 목적지 → 어디에도 넣지 않음 (BFS가 멈출 수 있는 헥사로 계산)
       } else {
-        blockerSet.add(k);
+        // 비보병 아군: 지나갈 수 있지만 멈출 수 없음 → passThroughSet
+        passThroughSet.add(k);
       }
     }
 
@@ -1025,41 +1029,30 @@ export class GameScene extends Phaser.Scene {
       movePoints,
       this.craterSet,
       blockerSet,
-      new Set(),
+      passThroughSet,   // 아군 통과 허용 (MP 소모, 멈추기 불가)
       this.ridgeMap,
       canCrossRidge,
     );
   }
 
-  /** OGRE 이동 범위: 일반 이동 + RAM 가능 인접 방어군 헥스 포함 */
+  /**
+   * OGRE 이동 범위 계산.
+   * - 크레이터: 진입 불가 (맵에 없는 헥사 취급)
+   * - 능선: OGRE는 통과 가능
+   * - 방어군 헥사: 진입 가능 (진입 시 RAM 자동 발동)
+   * → 따라서 blockerSet/passThroughSet 없이 크레이터/능선만 적용
+   */
   private computeOgreMoveRange(movePoints: number): HexCoord[] {
     const o = this.ogreCtrl.getStats();
-    const blockerSet = new Set<string>();
-    for (const u of this.defenders.getAlive()) {
-      blockerSet.add(`${u.col},${u.row}`);
-    }
-
-    const normalRange = this.hexGrid.reachable(
+    return this.hexGrid.reachable(
       { col: o.col, row: o.row },
       movePoints,
       this.craterSet,
-      blockerSet,
-      new Set(),
+      new Set(),    // blockerSet 없음 — 방어군 헥사도 진입 가능 (RAM 발동)
+      new Set(),    // passThroughSet 없음
       this.ridgeMap,
-      true,
+      true,         // OGRE: 능선 통과 가능
     );
-
-    // RAM 가능 대상: 정상 이동 범위 내(또는 OGRE 자신)에 인접한 방어군 헥스
-    const reachKeys = new Set(normalRange.map(h => `${h.col},${h.row}`));
-    reachKeys.add(`${o.col},${o.row}`);
-    const ramTargets: HexCoord[] = [];
-    for (const u of this.defenders.getAlive()) {
-      if (u.state === 'dead') continue;
-      const adj = this.hexGrid.neighbors({ col: u.col, row: u.row });
-      const ramOk = adj.some(a => reachKeys.has(`${a.col},${a.row}`));
-      if (ramOk) ramTargets.push({ col: u.col, row: u.row });
-    }
-    return [...normalRange, ...ramTargets];
   }
 
   private canPlayerControl(side: Side): boolean {
@@ -1087,41 +1080,34 @@ export class GameScene extends Phaser.Scene {
     }
 
     const inRange = this.moveRange.some(c => c.col === hex.col && c.row === hex.row);
-    if (!inRange) {
-      // Check if clicked hex is a defender within move range path → trigger RAM
-      const unitAt = this.defenders.getAt(hex.col, hex.row);
-      if (unitAt && unitAt.state !== 'dead') {
-        // Determine if any neighbor of target is reachable (i.e. we can step into it via RAM)
-        const adj = this.hexGrid.neighbors(hex);
-        const reachableAdj = adj.find(a =>
-          this.moveRange.some(m => m.col === a.col && m.row === a.row)
-          || (a.col === o.col && a.row === o.row),
-        );
-        if (reachableAdj) {
-          // Move to adjacent first (if not already adjacent)
-          if (!(reachableAdj.col === o.col && reachableAdj.row === o.row)) {
-            this.ogreCtrl.moveTo(reachableAdj.col, reachableAdj.row);
-            this.bus.emit(EVENTS.UNIT_MOVED, {
-              unitId: o.id, from: { col: o.col, row: o.row }, to: reachableAdj,
-            });
-            this.ogreMoveUsed += 1;
-          }
-          // Then perform RAM
+    if (!inRange) return;
+
+    // 이동 경로 계산 (크레이터/능선만 적용, 방어군은 블로커 아님)
+    const path = this.hexGrid.path(
+      { col: o.col, row: o.row }, hex, remaining,
+      this.craterSet, new Set(), new Set(), this.ridgeMap, true,
+    );
+    const steps = path?.length ?? this.hexGrid.distance({ col: o.col, row: o.row }, hex);
+
+    // 경로 중간에 방어군이 있으면 → 그 헥사에서 멈추고 RAM 발동
+    // (경로에서 첫 번째로 만나는 방어군에서 이동 중단)
+    if (path) {
+      for (const stepHex of path) {
+        const unitAt = this.defenders.getAt(stepHex.col, stepHex.row);
+        if (unitAt && unitAt.state !== 'dead') {
+          // OGRE를 방어군 헥사로 이동
+          const from2 = { col: o.col, row: o.row };
+          const stepsToHere = path.indexOf(stepHex) + 1;
+          this.ogreCtrl.moveTo(stepHex.col, stepHex.row);
+          this.ogreMoveUsed += stepsToHere;
+          this.bus.emit(EVENTS.UNIT_MOVED, { unitId: o.id, from: from2, to: stepHex });
           this.executeRamOnTarget(unitAt.id);
           return;
         }
       }
-      return;
     }
 
-    // Normal move: compute path length (1 cost per hex; crater 진입 불가)
-    const path = this.hexGrid.path(
-      { col: o.col, row: o.row }, hex, remaining,
-      this.craterSet, this.defenderBlockers(),
-      new Set(), this.ridgeMap, true,
-    );
-    const steps = path?.length ?? this.hexGrid.distance({ col: o.col, row: o.row }, hex);
-
+    // 경로에 방어군 없음 → 정상 이동
     const from = { col: o.col, row: o.row };
     this.ogreCtrl.moveTo(hex.col, hex.row);
     this.ogreMoveUsed += steps;
