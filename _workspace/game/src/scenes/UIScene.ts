@@ -172,6 +172,11 @@ export class UIScene extends Phaser.Scene {
   // ── Pip refs (weapon damage live updates) ─────────────────────────────────
   private weaponPips: Phaser.GameObjects.Graphics[] = [];
 
+  // ── Selected unit detail panel (bottom of left panel) ──────────────────────
+  private selectedInfoContainer?: Phaser.GameObjects.Container;
+  private selectedUnitData: DefenderUnit | null = null;
+  private selectedIsOgre = false;
+
   // ── Right panel refs ───────────────────────────────────────────────────────
   private treadBarG?: Phaser.GameObjects.Graphics;
   private treadBarRect = { x: 0, y: 0, w: 0, h: 12 };
@@ -1178,6 +1183,18 @@ export class UIScene extends Phaser.Scene {
       if (p?.defenderUnits) this.initUnitList(p.defenderUnits);
     });
 
+    // ── Selected-unit detail panel (left panel bottom) ──────────────────────
+    bus.on(EVENTS.UI_SELECT_UNIT, (payload: { unitId?: string; mode?: string }) => {
+      if (!payload || !payload.unitId) return;
+      const uid = payload.unitId;
+      const u = this.unitList.find(x => x.id === uid);
+      if (u) {
+        this.showUnitDetail(u);
+      } else if (uid === 'ogre' || uid.toLowerCase().startsWith('ogre')) {
+        this.showOgreDetail();
+      }
+    });
+
     bus.on(EVENTS.VICTORY, (data: { winner: 'ogre' | 'defender'; reason: string }) => {
       this.scene.start('gameover', data);
     });
@@ -1449,6 +1466,232 @@ export class UIScene extends Phaser.Scene {
     if (u) u.state = state;
     this.renderUnitRows();
     if (this.selectedUnitId) this.selectUnit(this.selectedUnitId);
+    // Refresh detail panel if the changed unit is currently selected
+    if (this.selectedUnitData && this.selectedUnitData.id === unitId) {
+      const updated = this.unitList.find(x => x.id === unitId);
+      if (updated) this.showUnitDetail(updated);
+    }
+  }
+
+  // ==========================================================================
+  // SELECTED UNIT DETAIL — bottom of left panel
+  // ==========================================================================
+  private showUnitDetail(u: DefenderUnit): void {
+    this.selectedInfoContainer?.destroy();
+    this.selectedInfoContainer = undefined;
+    this.selectedUnitData = u;
+    this.selectedIsOgre = false;
+
+    const r = this.layout.leftPanel;
+    if (r.w === 0) return;
+
+    const PANEL_H = 180;
+    const y0 = r.y + r.h - PANEL_H;
+
+    const c = this.add.container(0, 0);
+
+    // top separator
+    const sepG = this.add.graphics();
+    sepG.lineStyle(1, HEX.BDR, 1);
+    sepG.lineBetween(r.x + 8, y0, r.x + r.w - 8, y0);
+    c.add(sepG);
+
+    // background tint to visually separate from list above
+    const bgG = this.add.graphics();
+    bgG.fillStyle(0x0A140A, 0.85);
+    bgG.fillRect(r.x + 1, y0 + 1, r.w - 2, PANEL_H - 2);
+    c.add(bgG);
+
+    let y = y0 + 6;
+
+    // Section header
+    const hdr = this.add.text(r.x + 10, y, 'SELECTED UNIT', textStyle(9, COL.G4)).setOrigin(0, 0);
+    hdr.setLetterSpacing(2);
+    c.add(hdr);
+    y += 14;
+
+    // Determine state-derived colors
+    const stateCol = u.state === 'dead' ? '#555555' : u.state === 'disabled' ? COL.AMBER : COL.G;
+    const stateHex = u.state === 'dead' ? 0x555555 : u.state === 'disabled' ? HEX.AMBER : HEX.G;
+
+    // Icon box (36x36)
+    const ix = r.x + 10;
+    const iy = y;
+    const iconG = this.add.graphics();
+    iconG.lineStyle(1, stateHex, u.state === 'dead' ? 0.4 : 1);
+    iconG.strokeRect(ix, iy, 36, 36);
+    c.add(iconG);
+
+    const svgK = `${unitSvgKey(u)}_crt`;
+    if (this.textures.exists(svgK)) {
+      const img = this.add.image(ix + 18, iy + 18, svgK).setDisplaySize(32, 32).setTint(stateHex);
+      if (u.state === 'dead') img.setAlpha(0.4);
+      c.add(img);
+    } else {
+      const tok = UNIT_ICON_TOKEN[u.type] ?? u.type.slice(0, 3);
+      c.add(this.add.text(ix + 18, iy + 18, tok, textStyle(10, stateCol)).setOrigin(0.5));
+    }
+
+    // Name + position + state
+    const unitNames: Record<DefenderUnitType, string> = {
+      HVY: 'Heavy Tank',
+      MSL: 'Missile Tank',
+      GEV: 'GEV',
+      HOW: 'Howitzer',
+      INF: 'Infantry',
+      CP:  'Command Post',
+    };
+    const tCode = `(${u.type})`;
+    const squadStr = u.type === 'INF' && u.squads ? ` x${u.squads}sq` : '';
+    const nameLine = `${unitNames[u.type] ?? u.type} ${tCode}${squadStr}`;
+    const nameTxt = this.add.text(ix + 44, iy, nameLine, textStyle(10, stateCol)).setOrigin(0, 0);
+    nameTxt.setLetterSpacing(1);
+    if (u.state === 'dead') nameTxt.setAlpha(0.5);
+    c.add(nameTxt);
+
+    const posTxt = this.add.text(
+      ix + 44, iy + 14,
+      `POS: (${String(u.col + 1).padStart(2, '0')},${String(u.row + 1).padStart(2, '0')})`,
+      textStyle(9, COL.G4),
+    ).setOrigin(0, 0);
+    c.add(posTxt);
+
+    const stateLabel = u.state === 'dead' ? 'DESTROYED' : u.state === 'disabled' ? 'DISABLED' : 'OK';
+    const stateTxt = this.add.text(ix + 44, iy + 26, `STATE: ${stateLabel}`, textStyle(9, stateCol)).setOrigin(0, 0);
+    c.add(stateTxt);
+
+    y += 44;
+
+    // Mid divider
+    const midDiv = this.add.graphics();
+    midDiv.lineStyle(1, HEX.BDR2, 1);
+    midDiv.lineBetween(r.x + 10, y, r.x + r.w - 10, y);
+    c.add(midDiv);
+    y += 4;
+
+    // Stats row 1: ATK / DEF
+    const stat1 = this.add.text(r.x + 10, y, `ATK:${u.atk}   DEF:${u.def}`, textStyle(9, COL.G3)).setOrigin(0, 0);
+    c.add(stat1);
+    y += 12;
+
+    // Stats row 2: MOV (with secondary if present) / RNG
+    const moveStr = u.secondaryMove ? `${u.move}+${u.secondaryMove}` : `${u.move}`;
+    const stat2 = this.add.text(r.x + 10, y, `MOV:${moveStr}   RNG:${u.range}`, textStyle(9, COL.G3)).setOrigin(0, 0);
+    c.add(stat2);
+    y += 12;
+
+    // Ridge crossing capability (INF only)
+    const canRidge = u.type === 'INF';
+    const ridgeStr = canRidge ? 'RIDGE: CAN CROSS' : 'RIDGE: BLOCKED';
+    const ridgeCol = canRidge ? COL.G3 : COL.G4;
+    const ridgeTxt = this.add.text(r.x + 10, y, ridgeStr, textStyle(9, ridgeCol)).setOrigin(0, 0);
+    c.add(ridgeTxt);
+
+    this.leftPanel.add(c);
+    this.selectedInfoContainer = c;
+  }
+
+  private showOgreDetail(): void {
+    this.selectedInfoContainer?.destroy();
+    this.selectedInfoContainer = undefined;
+    this.selectedUnitData = null;
+    this.selectedIsOgre = true;
+
+    const r = this.layout.leftPanel;
+    if (r.w === 0) return;
+
+    const PANEL_H = 180;
+    const y0 = r.y + r.h - PANEL_H;
+
+    const c = this.add.container(0, 0);
+
+    const sepG = this.add.graphics();
+    sepG.lineStyle(1, HEX.BDR, 1);
+    sepG.lineBetween(r.x + 8, y0, r.x + r.w - 8, y0);
+    c.add(sepG);
+
+    const bgG = this.add.graphics();
+    bgG.fillStyle(0x0A140A, 0.85);
+    bgG.fillRect(r.x + 1, y0 + 1, r.w - 2, PANEL_H - 2);
+    c.add(bgG);
+
+    let y = y0 + 6;
+    const hdr = this.add.text(r.x + 10, y, 'SELECTED UNIT', textStyle(9, COL.G4)).setOrigin(0, 0);
+    hdr.setLetterSpacing(2);
+    c.add(hdr);
+    y += 14;
+
+    // OGRE icon
+    const ix = r.x + 10;
+    const iy = y;
+    const iconG = this.add.graphics();
+    iconG.lineStyle(1, HEX.G, 1);
+    iconG.strokeRect(ix, iy, 36, 36);
+    c.add(iconG);
+    if (this.textures.exists('ogre_mk3_crt')) {
+      const img = this.add.image(ix + 18, iy + 18, 'ogre_mk3_crt').setDisplaySize(32, 32).setTint(HEX.G);
+      c.add(img);
+    } else {
+      c.add(this.add.text(ix + 18, iy + 18, 'OGRE', textStyle(9, COL.G)).setOrigin(0.5));
+    }
+
+    const nameTxt = this.add.text(ix + 44, iy, 'OGRE MK.III', textStyle(10, COL.G)).setOrigin(0, 0);
+    nameTxt.setLetterSpacing(1);
+    applyGlow(nameTxt, COL.G2, 4);
+    c.add(nameTxt);
+
+    const posTxt = this.add.text(
+      ix + 44, iy + 14,
+      `POS: (${String(this.ogreCol).padStart(2, '0')},${String(this.ogreRow).padStart(2, '0')})`,
+      textStyle(9, COL.G4),
+    ).setOrigin(0, 0);
+    c.add(posTxt);
+
+    const mv = OGRE_MOVEMENT_TABLE.find(b => this.currentTreads >= b.treadMin && this.currentTreads <= b.treadMax)?.movement ?? 0;
+    const mvLbl = mv >= 3 ? 'M3' : mv === 2 ? 'M2' : mv === 1 ? 'M1' : 'M0';
+    const tTxt = this.add.text(
+      ix + 44, iy + 26,
+      `TREADS: ${this.currentTreads}/${this.maxTreads}  MOVE: ${mvLbl}`,
+      textStyle(9, COL.G3),
+    ).setOrigin(0, 0);
+    c.add(tTxt);
+
+    y += 44;
+
+    const midDiv = this.add.graphics();
+    midDiv.lineStyle(1, HEX.BDR2, 1);
+    midDiv.lineBetween(r.x + 10, y, r.x + r.w - 10, y);
+    c.add(midDiv);
+    y += 4;
+
+    // Weapon summary lines (live remaining counts)
+    const main = this.weapons.find(w => w.type === 'main');
+    const sec  = this.weapons.find(w => w.type === 'secondary');
+    const ap   = this.weapons.find(w => w.type === 'ap');
+    const msl  = this.weapons.find(w => w.type === 'missile');
+
+    const w1 = this.add.text(
+      r.x + 10, y,
+      `WEAPONS: MAIN x${main?.remaining ?? 0}  SEC x${sec?.remaining ?? 0}`,
+      textStyle(9, COL.G3),
+    ).setOrigin(0, 0);
+    c.add(w1);
+    y += 12;
+
+    const w2 = this.add.text(
+      r.x + 10, y,
+      `         MSL x${msl?.remaining ?? 0}  AP x${ap?.remaining ?? 0}`,
+      textStyle(9, COL.G3),
+    ).setOrigin(0, 0);
+    c.add(w2);
+    y += 14;
+
+    const hint = this.add.text(r.x + 10, y, 'SEE RIGHT PANEL ->', textStyle(8, COL.G4)).setOrigin(0, 0);
+    hint.setLetterSpacing(1);
+    c.add(hint);
+
+    this.leftPanel.add(c);
+    this.selectedInfoContainer = c;
   }
 
   // ==========================================================================
@@ -1465,11 +1708,19 @@ export class UIScene extends Phaser.Scene {
     this.fireButtons = [];
     this.actionButtons = [];
     this.combatLogTexts = [];
+    this.selectedInfoContainer = undefined;  // destroyed with leftPanel
     this.buildLeftPanel();
     this.buildRightPanel();
     this.buildBottomBar();
     this.refreshActionButtons();
     this.refreshHint();
     this.refreshCombatLog();
+    // Restore detail panel after relayout if a unit was selected
+    if (this.selectedUnitData) {
+      const u = this.unitList.find(x => x.id === this.selectedUnitData!.id);
+      if (u) this.showUnitDetail(u);
+    } else if (this.selectedIsOgre) {
+      this.showOgreDetail();
+    }
   }
 }

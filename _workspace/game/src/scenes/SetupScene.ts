@@ -67,6 +67,20 @@ export class SetupScene extends Phaser.Scene {
   private R = 22;
   private OX = 0;
   private OY = 0;
+  private minR = 6;
+
+  // Pan / drag state
+  private panX = 0;
+  private panY = 0;
+  private isPanning = false;
+  private lastDragX = 0;
+  private lastDragY = 0;
+
+  // Map area constants (set in create())
+  private FOOTER_H = 140;
+  private HEADER_H = 60;
+  private LEFT_OFFSET = 50;
+  private RIGHT_OFFSET = 16;
 
   private mapG!: Phaser.GameObjects.Graphics;
   private ridgeG!: Phaser.GameObjects.Graphics;
@@ -146,13 +160,18 @@ export class SetupScene extends Phaser.Scene {
     const LEFT_OFFSET  = 50;   // 행번호 표시 여유
     const RIGHT_OFFSET = 16;
     const TOP_OFFSET   = HEADER + 24; // 열번호 표시 여유
+    this.HEADER_H = HEADER;
+    this.FOOTER_H = FOOTER;
+    this.LEFT_OFFSET = LEFT_OFFSET;
+    this.RIGHT_OFFSET = RIGHT_OFFSET;
     const usableW = w - LEFT_OFFSET - RIGHT_OFFSET;
     const usableH = h - FOOTER - TOP_OFFSET;
 
-    // R 계산: 폭/높이 둘 다 고려
+    // minR: 맵 전체가 화면에 들어오는 최소 R
     const rByW = (usableW - 2) / ((COLS - 1) * 1.5 + 2);
     const rByH = (usableH - SQRT3 * 2) / ((ROWS - 0.5) * SQRT3);
-    this.R = Math.max(8, Math.min(22, Math.min(rByW, rByH)));
+    this.minR = Math.max(6, Math.min(rByW, rByH));
+    this.R = this.minR;   // 초기 R = 맵 전체 보이는 크기
 
     const mapPixW = (COLS - 1) * this.R * 1.5 + 2 * this.R;
     this.OX = LEFT_OFFSET + (usableW - mapPixW) / 2 + this.R;
@@ -174,7 +193,9 @@ export class SetupScene extends Phaser.Scene {
     const hit = this.add
       .rectangle(hitX + hitW / 2, hitY + hitH / 2, hitW, hitH, 0x000000, 0.001)
       .setInteractive({ useHandCursor: true });
-    hit.on('pointerdown', (p: Phaser.Input.Pointer) => this.onMapClick(p.x, p.y));
+    hit.on('pointerdown', (p: Phaser.Input.Pointer) => {
+      if (p.leftButtonDown()) this.onMapClick(p.x, p.y);
+    });
 
     this.buildPalette(w, h);
 
@@ -206,6 +227,44 @@ export class SetupScene extends Phaser.Scene {
       this.input.keyboard.on('keydown-ENTER', () => this.confirm());
       this.input.keyboard.on('keydown-ESC',   () => this.scene.start('briefing'));
     }
+
+    // ── Map pan / zoom (GameScene parity) ──
+    this.game.canvas.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    });
+    this.input.on('pointerdown', (ptr: Phaser.Input.Pointer) => {
+      if (ptr.rightButtonDown() || ptr.middleButtonDown()) {
+        this.isPanning = true;
+        this.lastDragX = ptr.x;
+        this.lastDragY = ptr.y;
+      }
+    });
+    this.input.on('pointermove', (ptr: Phaser.Input.Pointer) => {
+      if (this.isPanning && (ptr.rightButtonDown() || ptr.middleButtonDown())) {
+        this.panX += ptr.x - this.lastDragX;
+        this.panY += ptr.y - this.lastDragY;
+        this.lastDragX = ptr.x;
+        this.lastDragY = ptr.y;
+        this.clampPan();
+        this.redrawMap();
+      }
+    });
+    this.input.on('pointerup', () => { this.isPanning = false; });
+    this.input.on('pointerupoutside', () => { this.isPanning = false; });
+
+    this.input.on('wheel', (ptr: Phaser.Input.Pointer, _objs: any, _dx: number, dy: number) => {
+      const factor = dy > 0 ? (1 / 1.15) : 1.15;
+      const oldR = this.R;
+      const newR = Math.max(this.minR, Math.min(28, oldR * factor));
+      if (newR === oldR) return;
+      // Cursor-anchored zoom: keep hex under cursor fixed
+      this.OX = ptr.x - (ptr.x - this.OX) * (newR / oldR);
+      this.OY = ptr.y - (ptr.y - this.OY) * (newR / oldR);
+      this.R = newR;
+      this.clampPan();
+      this.redrawMap();
+    });
 
     // NOTE: 1P-OGRE 모드에서는 방어군 배치를 사람이 수행하지 않으므로 OGRE 진입 헥스만 배치.
     // 1P-DEFENDER 모드에서는 OGRE 위치 고정(createOgreMk3 기본값).
@@ -255,9 +314,9 @@ export class SetupScene extends Phaser.Scene {
   // 헥스 수학
   // --------------------------------------------------------------------------
   private hexCenter(col: number, row: number): [number, number] {
-    const x = this.OX + col * this.R * 1.5;
+    const x = this.OX + col * this.R * 1.5 + this.panX;
     const yOff = (col % 2 === 1) ? -this.R * SQRT3 * 0.5 : 0;
-    const y = this.OY + row * this.R * SQRT3 + yOff;
+    const y = this.OY + row * this.R * SQRT3 + yOff + this.panY;
     return [x, y];
   }
 
@@ -277,13 +336,42 @@ export class SetupScene extends Phaser.Scene {
   }
 
   private pixelToHex(px: number, py: number): { col: number; row: number } | null {
-    const col = Math.round((px - this.OX) / (this.R * 1.5));
+    const col = Math.round((px - this.OX - this.panX) / (this.R * 1.5));
     if (col < 0 || col >= COLS) return null;
     const yOff = (col % 2 === 1) ? -this.R * SQRT3 * 0.5 : 0;
-    const row = Math.round((py - this.OY - yOff) / (this.R * SQRT3));
+    const row = Math.round((py - this.OY - this.panY - yOff) / (this.R * SQRT3));
     if (row < 0 || row >= ROWS) return null;
     if (!this.isValidHex(col, row)) return null;
     return { col, row };
+  }
+
+  // --------------------------------------------------------------------------
+  // Pan clamping (GameScene parity) — keep map within usable area
+  // --------------------------------------------------------------------------
+  private clampPan(): void {
+    const pad = 8;
+    const fullH = (ROWS + 0.5) * this.R * SQRT3 + pad * 2;
+    const fullW = (COLS - 1) * this.R * 1.5 + 2 * this.R + pad * 2;
+    const usableH = this.scale.height - this.FOOTER_H;
+    const usableW = this.scale.width - this.LEFT_OFFSET - this.RIGHT_OFFSET;
+    const maxPanY = Math.max(0, fullH - usableH);
+    this.panY = Math.max(-maxPanY, Math.min(0, this.panY));
+    if (fullW > usableW) {
+      const excess = (fullW - usableW) / 2 + pad;
+      const leftExtra = Math.max(28, this.R * 2.2);
+      this.panX = Math.max(-(excess + leftExtra), Math.min(excess + pad * 2, this.panX));
+    } else {
+      this.panX = 0;
+    }
+  }
+
+  /** Re-draw all map content after pan / zoom. */
+  private redrawMap(): void {
+    for (const t of this.mapTexts) t.destroy();
+    this.mapTexts = [];
+    this.drawMap();
+    this.drawRowColLabels();
+    this.refreshPlaced();
   }
 
   // --------------------------------------------------------------------------
@@ -412,7 +500,7 @@ export class SetupScene extends Phaser.Scene {
     for (let col = 0; col < COLS; col++) {
       const [cx] = this.hexCenter(col, 0);
       const yOff = (col % 2 === 1) ? -this.R * SQRT3 * 0.5 : 0;
-      const cy = this.OY + yOff - this.R * SQRT3 * 0.9;
+      const cy = this.OY + yOff - this.R * SQRT3 * 0.9 + this.panY;
       this.mapTexts.push(
         this.add.text(cx, cy, `C${String(col + 1).padStart(2, '0')}`, labelStyle)
           .setOrigin(0.5, 1),
@@ -422,7 +510,7 @@ export class SetupScene extends Phaser.Scene {
     // 행 번호: 맵 왼쪽 (col 0 = 짝수 col 기준 y)
     for (let row = 0; row < ROWS; row++) {
       const [, cy] = this.hexCenter(0, row);
-      const cx = this.OX - this.R * 1.2;
+      const cx = this.OX - this.R * 1.2 + this.panX;
       this.mapTexts.push(
         this.add.text(cx, cy, `R${String(row + 1).padStart(2, '0')}`, labelStyle)
           .setOrigin(1, 0.5),
@@ -572,8 +660,20 @@ export class SetupScene extends Phaser.Scene {
       );
       if (existingInf) {
         const current = existingInf.squads ?? 1;
+        // 3스쿼드 상태에서 클릭 → 전체 제거 + 환불 (1→2→3→취소 순환)
         if (current >= 3) {
-          this.flashHint('MAX 3 INFANTRY SQUADS PER HEX.', CRT.RED);
+          const idx = this.placedUnits.findIndex(
+            u => u.col === col && u.row === row && u.type === 'INF',
+          );
+          if (idx !== -1) {
+            this.placedUnits.splice(idx, 1);
+            this.infPointsLeft += current * item.cost;
+            item.remaining += current;
+            this.refreshPlaced();
+            this.refreshPaletteCounts();
+            this.budgetText.setText(this.budgetString());
+            this.centralAtkText.setText(this.centralAtkString());
+          }
           return;
         }
         if (this.infPointsLeft < item.cost) {

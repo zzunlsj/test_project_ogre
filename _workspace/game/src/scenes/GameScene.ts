@@ -16,6 +16,7 @@ import {
   RIDGE_EDGES,
   CRT,
   createOgreMk3,
+  DEFENDER_UNITS,
 } from '@/data/constants';
 import { EVENTS } from '@/types';
 import type {
@@ -1215,8 +1216,9 @@ export class GameScene extends Phaser.Scene {
       if (unitHere.move <= 0) return;
       if (this.defendersMoved.has(unitHere.id) && !isGevPhase) return;  // already moved
       this.selectedUnitId = unitHere.id;
+      const tpl = DEFENDER_UNITS[unitHere.type as keyof typeof DEFENDER_UNITS];
       const mp = isGevPhase
-        ? (unitHere.secondaryMove ?? Math.floor(unitHere.move / 2))
+        ? (tpl?.secondaryMove ?? unitHere.secondaryMove ?? Math.floor(unitHere.move / 2))
         : unitHere.move;
       // Friendly units → pass-through (traverse but cannot stop)
       // INF destination of same hex would be allowed via direct stacking check separately.

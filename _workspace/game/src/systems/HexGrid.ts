@@ -147,15 +147,23 @@ export class HexGrid {
         if (craterSet.has(k)) continue;
         // Ridge: units without canCrossRidge cannot cross a ridge edge
         if (!canCrossRidge && ridgeMap.size > 0) {
-          const edgeIdx = this.edgeBetween(cur.coord, nb);
-          if (edgeIdx !== -1) {
-            const srcK = key(cur.coord);
-            const srcRidges = ridgeMap.get(srcK);
-            if (srcRidges && srcRidges.has(edgeIdx as number)) continue;
-            const revEdge = ((edgeIdx as number) + 3) % 6;
-            const tgtRidges = ridgeMap.get(k);
-            if (tgtRidges && tgtRidges.has(revEdge)) continue;
+          let ridgeBlocks = false;
+          for (let e = 0; e < 6; e++) {
+            const d = neighborDelta(cur.coord.col, e as EdgeIndex);
+            if (cur.coord.col + d.dc === nb.col && cur.coord.row + d.dr === nb.row) {
+              // e = cur → nb 방향의 엣지
+              const srcKey = `${cur.coord.col},${cur.coord.row}`;
+              const srcSet = ridgeMap.get(srcKey);
+              if (srcSet && srcSet.has(e)) { ridgeBlocks = true; break; }
+              // 반대: 도착 헥스에서 반대 방향 엣지 확인
+              const revE = (e + 3) % 6;
+              const dstKey = `${nb.col},${nb.row}`;
+              const dstSet = ridgeMap.get(dstKey);
+              if (dstSet && dstSet.has(revE)) { ridgeBlocks = true; }
+              break;
+            }
           }
+          if (ridgeBlocks) continue;
         }
         const total = cur.cost + 1;  // uniform cost; craters are blocked entirely
         if (total > movePoints) continue;
@@ -205,15 +213,21 @@ export class HexGrid {
         if (craterSet.has(k)) continue;
         // Ridge edge restriction
         if (!canCrossRidge && ridgeMap.size > 0) {
-          const edgeIdx = this.edgeBetween(cur.coord, nb);
-          if (edgeIdx !== -1) {
-            const srcK = key(cur.coord);
-            const srcRidges = ridgeMap.get(srcK);
-            if (srcRidges && srcRidges.has(edgeIdx as number)) continue;
-            const revEdge = ((edgeIdx as number) + 3) % 6;
-            const tgtRidges = ridgeMap.get(k);
-            if (tgtRidges && tgtRidges.has(revEdge)) continue;
+          let ridgeBlocks = false;
+          for (let e = 0; e < 6; e++) {
+            const d = neighborDelta(cur.coord.col, e as EdgeIndex);
+            if (cur.coord.col + d.dc === nb.col && cur.coord.row + d.dr === nb.row) {
+              const srcKey = `${cur.coord.col},${cur.coord.row}`;
+              const srcSet = ridgeMap.get(srcKey);
+              if (srcSet && srcSet.has(e)) { ridgeBlocks = true; break; }
+              const revE = (e + 3) % 6;
+              const dstKey = `${nb.col},${nb.row}`;
+              const dstSet = ridgeMap.get(dstKey);
+              if (dstSet && dstSet.has(revE)) { ridgeBlocks = true; }
+              break;
+            }
           }
+          if (ridgeBlocks) continue;
         }
         const total = cur.cost + 1;
         if (total > movePoints) continue;
